@@ -226,11 +226,13 @@ src/
 │   └── wallets.ts           the agent's own funded account
 ├── shared/policy.ts         spending controls, enforced below the model
 ├── tools/xrplTools.ts       escrow create / finish / cancel
-├── server/
-│   ├── index.ts             settlement API, paid routes, agent endpoints
-│   ├── evidenceReviewer.ts  Claude vision, with an honest fallback
-│   └── store.ts             deals, wallets, durable receipt ledger
-└── public/                  buyer page, supplier page, agent dashboard
+└── server/
+    ├── index.ts             settlement API, paid routes, agent endpoints
+    ├── evidenceReviewer.ts  Claude vision, with an honest fallback
+    └── store.ts             deals, wallets, durable receipt ledger
+
+public/                      buyer page, supplier page, agent dashboard
+data/                        deals, wallet seeds, receipt ledger (gitignored)
 ```
 
 ## Next
