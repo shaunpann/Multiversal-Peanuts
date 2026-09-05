@@ -54,7 +54,7 @@ export class TradeOrchestrator {
     const ctx: PaidCallContext = { client, policy, emit: onLogEvent, paid: new Map() };
 
     try {
-    const selectedSupplier = await this.selectVerifiedSupplier(candidateSuppliers, ctx);
+    const selectedSupplier = await this.selectVerifiedSupplier(candidateSuppliers, ctx, false);
     if (!selectedSupplier) {
       onLogEvent({
         type: "agent_action",
@@ -224,25 +224,64 @@ export class TradeOrchestrator {
     | { supplier: SupplierQuote; agreedUnitPriceUSD: number; totalUSD: number; spendXrp: number; receipts: unknown[] }
     | undefined
   > {
-    onLogEvent({
-      type: "agent_action",
-      agent: "buyer",
-      action: "shortlist_received",
-      message:
-        `Checking the ${shortlist.length} supplier${shortlist.length === 1 ? "" : "s"} you already deal with for ` +
-        `${intent.quantity}x ${intent.productName}: ` +
-        shortlist.map((s) => `${s.supplierName} ($${s.unitPriceUSD}/unit)`).join(", "),
-      timestamp: new Date().toISOString(),
-    });
+    // Two ways in. The buyer's own quotes are the point of the product — the
+    // deal was done on WhatsApp and we are the settlement layer. But a buyer
+    // with nobody to bring still needs a starting list, so an empty shortlist
+    // falls back to sourcing. Either way the same paid verification runs: the
+    // list is not the value, knowing which of them will take your deposit and
+    // disappear is.
+    let candidates: SupplierQuote[];
 
-    const candidates = [...shortlist].sort((a, b) => a.unitPriceUSD - b.unitPriceUSD);
+    if (shortlist.length) {
+      onLogEvent({
+        type: "agent_action",
+        agent: "buyer",
+        action: "shortlist_received",
+        message:
+          `Checking the ${shortlist.length} supplier${shortlist.length === 1 ? "" : "s"} you already deal with for ` +
+          `${intent.quantity}x ${intent.productName}: ` +
+          shortlist.map((s) => `${s.supplierName} ($${s.unitPriceUSD}/unit)`).join(", "),
+        timestamp: new Date().toISOString(),
+      });
+      candidates = [...shortlist];
+    } else {
+      onLogEvent({
+        type: "agent_action",
+        agent: "buyer",
+        action: "sourcing_candidates",
+        message:
+          `No quotes of your own, so sourcing candidates for ${intent.quantity}x ${intent.productName} ` +
+          `from open directories and registries...`,
+        timestamp: new Date().toISOString(),
+      });
+
+      const found = await searchSuppliers(intent.productName);
+      candidates = found.map((s) => ({
+        ...s,
+        quantity: intent.quantity,
+        totalPriceUSD: s.unitPriceUSD * intent.quantity,
+      }));
+
+      onLogEvent({
+        type: "agent_action",
+        agent: "buyer",
+        action: "candidates_found",
+        message:
+          `Found ${candidates.length}: ` +
+          candidates.map((s) => `${s.supplierName} ($${s.unitPriceUSD}/unit)`).join(", ") +
+          ". A list is the easy part — now checking which of them can be trusted with a deposit.",
+        timestamp: new Date().toISOString(),
+      });
+    }
+
+    candidates.sort((a, b) => a.unitPriceUSD - b.unitPriceUSD);
 
     const policy = new PolicyEngine(DEFAULT_POLICY, onLogEvent);
     const client = await getClient();
     const ctx: PaidCallContext = { client, policy, emit: onLogEvent, paid: new Map() };
 
     try {
-      const supplier = await this.selectVerifiedSupplier(candidates, ctx);
+      const supplier = await this.selectVerifiedSupplier(candidates, ctx, shortlist.length > 0);
       if (!supplier) {
         onLogEvent({
           type: "agent_action",
@@ -311,7 +350,9 @@ export class TradeOrchestrator {
    */
   private async selectVerifiedSupplier(
     candidates: SupplierQuote[],
-    ctx: PaidCallContext
+    ctx: PaidCallContext,
+    /** True when these are the buyer's own quotes rather than sourced ones. */
+    isOwnShortlist = true
   ): Promise<SupplierQuote | undefined> {
     let unverifiable = 0;
 
@@ -320,7 +361,9 @@ export class TradeOrchestrator {
         type: "agent_action",
         agent: "buyer",
         action: "checking_supplier",
-        message: `${candidate.supplierName} is your cheapest quote at $${candidate.unitPriceUSD}/unit. Checking them before committing.`,
+        message:
+          `${candidate.supplierName} is the cheapest ${isOwnShortlist ? "of your quotes" : "candidate"} ` +
+          `at $${candidate.unitPriceUSD}/unit. Checking them before committing.`,
         timestamp: new Date().toISOString(),
       });
 

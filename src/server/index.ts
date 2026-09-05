@@ -137,9 +137,8 @@ app.post("/api/agent/source", (req, res) => {
       };
     });
 
-  if (!shortlist.length) {
-    return res.status(400).json({ error: "add at least one supplier you already deal with" });
-  }
+  // An empty shortlist is allowed: the agent sources candidates itself and
+  // then verifies them exactly the same way.
   const intent: BuyerIntent = {
     productName,
     quantity: qty,
