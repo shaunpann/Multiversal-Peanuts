@@ -127,7 +127,7 @@ ANTHROPIC_API_KEY=            # optional
 Without an API key the app still runs end to end: context reading falls back to
 a labelled pattern scan and evidence review to a labelled rule-based check.
 Both fallbacks say so in the UI. With a key, `claude-opus-5` reads the thread
-and vision judges delivery photos.
+into a brief and `claude-sonnet-5` judges delivery evidence, including photos.
 
 ---
 
@@ -151,13 +151,15 @@ One complete run, September 2026.
 | EscrowCreate (funds locked) | [`E096312B…`](https://testnet.xrpl.org/transactions/E096312B11E64AA260EB89261B3324A3C4834FFBD0380DC8A1DE1A89432AF695) |
 | EscrowFinish (supplier paid) | [`39D0DEC2…`](https://testnet.xrpl.org/transactions/39D0DEC27EB84FDC576639A3181948E4FF74CE707CF93B568968905B0E7B6858) |
 
-Every transaction carries `SourceTag 20260530` and memos binding it to the deal
-and action, so agent activity is filterable on-ledger — see
-[Track and Measure Agent Behavior](https://xrpl.org/docs/agents/track-agent-behavior).
+Every transaction carries `SourceTag 20260530`, so agent activity is filterable
+on-ledger — see [Track and Measure Agent Behavior](https://xrpl.org/docs/agents/track-agent-behavior).
+Escrow transactions additionally carry a memo binding them to the deal id and
+the action; x402 payments carry the payment nonce instead.
 
-Measured on testnet: **~6 s to validated, 12 drops per payment.** Five agent
-payments cost 0.00006 XRP in fees — roughly 0.005% overhead on a 0.25 XRP
-purchase, which is why a 25-cent API call can exist as a business model at all.
+Measured on the four payments above: **12 drops each, 48 drops total —
+0.000048 XRP.** That is 0.0048% overhead on a 0.25 XRP purchase, which is why
+a 25-cent API call can exist as a business model at all. A sourcing run takes
+roughly 30–50 seconds end to end, most of it waiting for ledger validation.
 
 ---
 
@@ -174,7 +176,8 @@ pretend otherwise.** What the ledger does guarantee:
 
 - the funds cannot move anywhere except to the named supplier;
 - not even the buyer can retract them before `CancelAfter`;
-- if the oracle never releases, the buyer is refunded without anyone's consent.
+- after `CancelAfter` the buyer can reclaim the funds with `EscrowCancel`,
+  needing neither the supplier's nor the oracle's cooperation.
 
 **Spending controls sit below the model.** `PolicyEngine` runs inside the
 payment path — per-call cap, per-deal budget, service allowlist, call limit, and
