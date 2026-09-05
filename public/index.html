@@ -232,20 +232,21 @@
           </label>
           <div style="display:flex; align-items:center; gap:.8rem; flex-wrap:wrap;">
             <button type="button" class="secondary" id="read-context">Read this</button>
+            <button type="button" class="manual-toggle" id="use-sample" style="font-size:.82rem;">Use a sample thread</button>
             <span class="note" id="context-summary"></span>
           </div>
         </div>
 
         <form id="agent-form" style="display:flex; flex-direction:column; gap:.9rem;">
           <label>What are you buying?
-            <input name="productName" type="text" required placeholder="aluminum enclosures" value="aluminum enclosures" />
+            <input name="productName" type="text" required placeholder="e.g. aluminium enclosures" />
           </label>
           <div style="display:flex; gap:.9rem;">
             <label style="flex:1">Quantity
-              <input name="quantity" type="number" min="1" value="100" />
+              <input name="quantity" type="number" min="1" placeholder="100" />
             </label>
             <label style="flex:1">Max budget (USD)
-              <input name="maxBudgetUSD" type="number" min="1" value="4000" />
+              <input name="maxBudgetUSD" type="number" min="1" placeholder="4000" />
             </label>
           </div>
 
@@ -499,11 +500,11 @@
 
   // Suppliers the buyer already deals with. Prefilled with a worked example;
   // every field is editable and rows can be added or removed.
-  const SEED_SUPPLIERS = [
-    { name: 'Dongguan Rapid Manufacturing', contact: 'wa +86 138 0000 111', price: 31 },
-    { name: 'Shenzhen Precision Tech',      contact: 'sales@szprecision.cn',  price: 35 },
-    { name: 'Global Components Ltd',        contact: 'wa +86 139 0000 222',   price: 38 },
-  ];
+  const SAMPLE_THREAD =
+    'Need 100 aluminium enclosures, budget 4000 usd, delivery in 3 weeks.\n\n' +
+    'Dongguan Rapid Manufacturing (wa +86 138 0000 111) quoted $31/unit, 6 days.\n' +
+    'Shenzhen Precision Tech — sales@szprecision.cn — $35 per unit, 5 days.\n' +
+    'Global Components Ltd offers $38 each.';
   const rows = document.getElementById('supplier-rows');
 
   function addSupplierRow(seed = { name:'', contact:'', price:'' }){
@@ -520,8 +521,14 @@
     rows.appendChild(row);
   }
 
-  SEED_SUPPLIERS.forEach(addSupplierRow);
+  addSupplierRow();
+  addSupplierRow();
   document.getElementById('add-supplier').addEventListener('click', () => addSupplierRow());
+
+  document.getElementById('use-sample').addEventListener('click', () => {
+    document.getElementById('context-text').value = SAMPLE_THREAD;
+    document.getElementById('context-summary').textContent = '';
+  });
 
   function readSuppliers(){
     return [...rows.querySelectorAll('.supplier-row')].map(r => ({

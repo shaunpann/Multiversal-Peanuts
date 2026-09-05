@@ -169,6 +169,16 @@ function fallbackRead(text: string): ParsedBrief {
     Number(text.match(/\b(?:need|want|require|buying|order)\s+([\d,]{1,7})\b/i)?.[1]?.replace(/,/g, "")) ||
     0;
 
+  // Whatever follows the quantity, up to the next clause boundary, is the
+  // thing being bought: "need 100 aluminium enclosures, budget..." -> the
+  // two words in the middle.
+  const productName = (
+    text.match(/\b[\d,]{1,7}\s*(?:x\s+|units? of\s+|pcs of\s+)?([a-z][a-z\s/-]{2,45}?)(?=\s*[,.;]|\s+budget\b|\s+by\b|\s+within\b|\s+deliver|\s*$)/im)?.[1] ?? ""
+  )
+    .replace(/\s+/g, " ")
+    .trim()
+    .toLowerCase();
+
   const maxBudgetUSD = Number(
     text.match(/budget[^\d$]{0,15}\$?\s*([\d,]+(?:\.\d+)?)/i)?.[1]?.replace(/,/g, ""),
   ) || 0;
@@ -180,7 +190,7 @@ function fallbackRead(text: string): ParsedBrief {
     : 14;
 
   return {
-    productName: "",
+    productName,
     quantity,
     maxBudgetUSD,
     deadlineDays,

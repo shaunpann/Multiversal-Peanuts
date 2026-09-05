@@ -95,8 +95,13 @@ npm run server            # http://localhost:3000
 Testnet wallets are created and funded from the faucet on first boot and cached
 under `data/`.
 
-**Buyer page** — `Start an order` → paste a thread (or use the seeded example) →
-`Read this` → `Check them and recommend one` → approve → send the invite link.
+**Buyer page** — `Start an order` → paste the thread you already have with your
+suppliers (or hit `Use a sample thread`) → `Read this`, which fills the brief and
+the supplier rows → `Check them and recommend one` → approve → send the supplier
+the invite link.
+
+The form starts empty on purpose: what fills it is the agent reading your
+messages, not a prefilled demo.
 
 **Supplier page** — open the invite link, generate a testnet address, submit
 delivery evidence.
