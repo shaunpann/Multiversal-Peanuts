@@ -1,8 +1,23 @@
 import { BuyerAgent } from "./buyerAgent";
 import { SupplierAgent } from "./supplierAgent";
 import { VerificationAgent, LogisticsAgent } from "./verificationAgent";
-import { searchSuppliers, evaluateInvoice } from "../tools/agentTools";
+import { searchSuppliers } from "../tools/agentTools";
+import { getClient, createFundedWallet, createEscrow } from "../tools/xrplTools";
 import { BuyerIntent, AgentLogEvent, DealTerms } from "../shared/types";
+
+// Demo-only USD->XRP mapping so testnet faucet wallets (funded with ~1000 XRP)
+// can settle deals of any size without needing a real FX oracle. NOT a real
+// exchange rate — a production build would price this off RLUSD (1:1 USD) or
+// a live rate feed instead of XRP.
+const DEMO_USD_TO_XRP_RATE = 0.01;
+function usdToDemoDrops(totalUsd: number): string {
+  const xrp = Math.max(1, totalUsd * DEMO_USD_TO_XRP_RATE);
+  return String(Math.round(xrp * 1_000_000));
+}
+
+// Safety-net refund window. 7 days is the realistic production value; the
+// caller may override it shorter purely to demo the refund path live.
+const DEFAULT_CANCEL_AFTER_SECONDS = 7 * 24 * 60 * 60;
 
 export class TradeOrchestrator {
   private buyerAgent = new BuyerAgent();
@@ -13,7 +28,7 @@ export class TradeOrchestrator {
   public async runProcurementLoop(
     intent: BuyerIntent,
     onLogEvent: (e: AgentLogEvent) => void,
-    settlementApiUrl: string = "http://localhost:3001/api/settlement/create-escrow"
+    options: { cancelAfterSeconds?: number } = {}
   ) {
     // 1. Discovery
     onLogEvent({
@@ -33,7 +48,6 @@ export class TradeOrchestrator {
 
     // 3. Autonomous Negotiation Loop
     for (let round = 1; round <= 3; round++) {
-      // Query Supplier
       const supplierResponse = await this.supplierAgent.negotiateTerms(
         selectedSupplier,
         currentBidUnitPrice,
@@ -45,7 +59,6 @@ export class TradeOrchestrator {
         break;
       }
 
-      // Buyer evaluates supplier's counter-offer
       const evaluation = this.buyerAgent.evaluateSupplierOffer(
         supplierResponse.counterOfferUnitPriceUSD,
         intent,
@@ -58,8 +71,7 @@ export class TradeOrchestrator {
       } else if (evaluation.NextBidUnitPriceUSD) {
         currentBidUnitPrice = evaluation.NextBidUnitPriceUSD;
       } else {
-        // Budget exceeded or deal failed
-        return;
+        return; // Budget exceeded or deal failed
       }
     }
 
@@ -68,12 +80,11 @@ export class TradeOrchestrator {
     // 4. Governance & Human Approval Boundary Check
     const needsApproval = this.buyerAgent.requiresHumanApproval(totalCostUSD, intent, onLogEvent);
     if (needsApproval) {
-      // In a real frontend, Person C presents an "Approve Deal" button
       onLogEvent({
         type: "agent_action",
         agent: "system",
         action: "awaiting_user_signature",
-        message: `User authorization received for $${totalCostUSD}. Handing off to XRPL / x402 settlement layer.`,
+        message: `User authorization received for $${totalCostUSD}. Handing off to XRPL settlement layer.`,
         timestamp: new Date().toISOString(),
       });
     }
@@ -89,36 +100,81 @@ export class TradeOrchestrator {
       status: "TERMS_AGREED",
     };
 
-    // 5. Hand off to Settlement API (Person B)
+    // 5. Settlement: lock funds in an XRPL escrow, gated by a condition only
+    // the verification agent can fulfill.
+    const client = await getClient();
     try {
-      const response = await fetch(settlementApiUrl, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(dealTerms),
+      // NOTE: these are freshly funded testnet wallets standing in for the
+      // real buyer/supplier/verification-agent accounts. A production build
+      // would load the buyer's and verification agent's own wallets (env-var
+      // or KMS per the XRPL Agent Wallet skill) and take the supplier's
+      // address as part of the already-agreed deal terms.
+      const buyer = await createFundedWallet(client, "buyer");
+      const supplier = await createFundedWallet(client, "supplier");
+      const verifier = await createFundedWallet(client, "verification-agent");
+
+      dealTerms.buyerAddress = buyer.address;
+      dealTerms.supplierAddress = supplier.address;
+
+      const { condition } = this.verificationAgent.generateReleaseCondition(dealTerms.dealId);
+      dealTerms.escrowCondition = condition;
+
+      onLogEvent({
+        type: "agent_action",
+        agent: "system",
+        action: "locking_funds",
+        message: `Locking $${dealTerms.totalPriceUSD} (demo: ${Number(usdToDemoDrops(totalCostUSD)) / 1_000_000} XRP) in XRPL escrow, release gated on verification agent's condition...`,
+        timestamp: new Date().toISOString(),
       });
-      const result = await response.json();
+
+      const created = await createEscrow({
+        client,
+        fromWallet: buyer.wallet,
+        toAddress: supplier.address,
+        amountDrops: usdToDemoDrops(totalCostUSD),
+        condition,
+        cancelAfterSeconds: options.cancelAfterSeconds ?? DEFAULT_CANCEL_AFTER_SECONDS,
+        memo: { agent_id: "settlement-orchestrator-v1", deal_id: dealTerms.dealId, action: "lock_escrow" },
+      });
+
+      if (created.resultCode !== "tesSUCCESS") {
+        throw new Error(`EscrowCreate failed: ${created.resultCode}`);
+      }
+
+      dealTerms.escrowSequence = created.sequence;
+      dealTerms.escrowCreateTxHash = created.txHash;
+      dealTerms.status = "ESCROW_REQUESTED";
 
       onLogEvent({
         type: "agent_action",
         agent: "system",
         action: "escrow_created",
-        message: `XRPL Escrow created! Tx Hash: ${result.txHash || "0xMOCK_HASH"}`,
+        message: `XRPL Escrow created! Tx Hash: ${created.txHash}`,
         timestamp: new Date().toISOString(),
       });
-    } catch (err) {
-      onLogEvent({
-        type: "agent_action",
-        agent: "system",
-        action: "escrow_requested",
-        message: `Sent deal terms to settlement layer. Locking $${dealTerms.totalPriceUSD} in XRPL Escrow.`,
-        timestamp: new Date().toISOString(),
-      });
-    }
 
-    // 6. Verification & Delivery
-    const verified = await this.verificationAgent.verifyOrder(dealTerms.dealId, onLogEvent);
-    if (verified) {
-      await this.logisticsAgent.confirmDelivery("DHL-XRPL-99120", onLogEvent);
+      // 6. Verification & autonomous release-or-refund decision
+      const settled = await this.verificationAgent.verifyAndSettle(client, verifier.wallet, dealTerms, onLogEvent);
+
+      if (settled.passed) {
+        dealTerms.inspectionPassed = true;
+        dealTerms.escrowFinishTxHash = settled.finishTxHash;
+        dealTerms.status = "DELIVERED";
+        await this.logisticsAgent.confirmDelivery("DHL-XRPL-99120", onLogEvent);
+      } else {
+        onLogEvent({
+          type: "agent_action",
+          agent: "system",
+          action: "settlement_pending_refund",
+          message: `Inspection failed. Funds remain locked; buyer may reclaim via EscrowCancel once the CancelAfter window elapses.`,
+          timestamp: new Date().toISOString(),
+        });
+        // Real flow: this fires later (after CancelAfter passes) — e.g. from
+        // a scheduled job — not synchronously here. Exposed for callers that
+        // want to demo the refund path with a short cancelAfterSeconds override.
+      }
+    } finally {
+      await client.disconnect();
     }
   }
 }

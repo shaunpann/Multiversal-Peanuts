@@ -33,5 +33,13 @@ export interface DealTerms {
   totalPriceUSD: number;
   deliveryDays: number;
   inspectionPassed: boolean;
-  status: "NEGOTIATING" | "TERMS_AGREED" | "ESCROW_REQUESTED" | "DELIVERED";
+  status: "NEGOTIATING" | "TERMS_AGREED" | "ESCROW_REQUESTED" | "DELIVERED" | "REFUNDED";
+  // XRPL settlement fields, populated once the deal hands off to the escrow layer.
+  buyerAddress?: string;
+  supplierAddress?: string;
+  escrowSequence?: number;
+  escrowCondition?: string;
+  escrowCreateTxHash?: string;
+  escrowFinishTxHash?: string;
+  escrowCancelTxHash?: string;
 }

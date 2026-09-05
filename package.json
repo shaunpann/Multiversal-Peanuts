@@ -1,0 +1,27 @@
+{
+  "name": "ripple-settlement-protocol",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Cross-border B2B settlement protocol on XRPL — SingHacks Ripple challenge",
+  "scripts": {
+    "test:xrpl": "ts-node src/tools/xrplTools.test.ts",
+    "test:xrpl:refund": "ts-node src/tools/xrplTools.refund-test.ts",
+    "test:agents": "ts-node src/agents/test-runner.ts",
+    "server": "ts-node src/server/index.ts"
+  },
+  "dependencies": {
+    "xrpl": "^4.1.0",
+    "five-bells-condition": "^5.0.1",
+    "dotenv": "^16.4.5",
+    "express": "^4.19.2",
+    "multer": "^2.0.1",
+    "@anthropic-ai/sdk": "^0.32.1"
+  },
+  "devDependencies": {
+    "typescript": "^5.5.4",
+    "ts-node": "^10.9.2",
+    "@types/node": "^20.14.15",
+    "@types/express": "^4.17.21",
+    "@types/multer": "^1.4.11"
+  }
+}

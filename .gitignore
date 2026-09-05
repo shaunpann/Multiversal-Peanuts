@@ -1,0 +1,11 @@
+node_modules/
+dist/
+
+# XRPL wallet seeds — NEVER commit these
+.env
+.env.*
+!.env.example
+
+# Server-side demo data: deal records + custodial wallet seeds. Local only.
+data/
+uploads/

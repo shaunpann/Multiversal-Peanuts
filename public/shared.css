@@ -1,0 +1,104 @@
+/* Tideline — Apple-style visual language: system font stack (matches how
+   apple.com itself renders off-device), near-black/white palette, hairline
+   borders instead of heavy shadows, Apple's signature blue accent, pill
+   buttons. A deliberate fixed light design (not OS-theme reactive) — the
+   hero commits to dark on purpose, the way Apple's own product pages do. */
+@import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&display=swap');
+
+:root{
+  --bg:#FFFFFF; --surface:#FFFFFF; --surface-2:#F5F5F7;
+  --ink:#1D1D1F; --ink-muted:#6E6E73; --border:#D2D2D7;
+  --cta:#0071E3; --cta-hover:#0068D1; --cta-soft:#E8F2FD;
+  --gold:#C9720A; --gold-soft:#FCEEDC;
+  --success:#1D7A46; --success-soft:#E5F5EA;
+  --danger:#D70015; --danger-soft:#FBE5E5;
+  --shadow: 0 2px 10px rgba(0,0,0,.04);
+}
+
+*{box-sizing:border-box;}
+body{
+  background:var(--bg); color:var(--ink);
+  font-family:-apple-system, BlinkMacSystemFont, "SF Pro Text", "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  margin:0; padding:0 0 5rem; display:flex; justify-content:center;
+}
+.mono{ font-family:'IBM Plex Mono', ui-monospace, monospace; font-variant-numeric: tabular-nums; }
+.page{ width:100%; max-width:680px; display:flex; flex-direction:column; gap:1.5rem; padding:0 1.25rem; }
+
+.brand{ display:flex; align-items:center; gap:.5rem; }
+.brand .mark{ font-size:1.25rem; }
+.brand .name{ font-weight:600; font-size:1.05rem; letter-spacing:-.01em; }
+
+.eyebrow{ font-size:.72rem; letter-spacing:.06em; text-transform:uppercase; color:var(--ink-muted); font-weight:600; }
+h1{ font-weight:600; font-size:2.1rem; letter-spacing:-.015em; margin:0; text-wrap:balance; line-height:1.1; }
+p.lede{ color:var(--ink-muted); font-size:1.02rem; line-height:1.5; max-width:60ch; margin:0; }
+
+.trust-row{ display:flex; flex-wrap:wrap; gap:.5rem; }
+.trust-badge{
+  display:inline-flex; align-items:center; gap:.35rem; font-size:.78rem; font-weight:500;
+  background:var(--surface-2); color:var(--ink-muted); border-radius:980px; padding:.4rem .85rem;
+}
+
+.panel{ background:var(--surface); border:1px solid var(--border); border-radius:18px; box-shadow:var(--shadow); padding:1.6rem; display:flex; flex-direction:column; gap:1.1rem; }
+.panel h2{ font-size:1.15rem; font-weight:600; letter-spacing:-.01em; margin:0; }
+
+label{ display:flex; flex-direction:column; gap:.4rem; font-size:.85rem; color:var(--ink-muted); font-weight:500; }
+input, textarea{
+  font-family:inherit; font-size:1rem; color:var(--ink);
+  background:var(--surface); border:1px solid var(--border); border-radius:12px;
+  padding:.75rem .9rem;
+}
+input:focus, textarea:focus{ outline:none; border-color:var(--cta); box-shadow:0 0 0 4px var(--cta-soft); }
+button:focus-visible{ outline:2px solid var(--cta); outline-offset:2px; }
+textarea{ resize:vertical; min-height:4.5rem; font-family:inherit; }
+
+button{
+  font-family:inherit; font-size:.95rem; font-weight:500;
+  background:var(--cta); color:#fff; border:none; border-radius:980px;
+  padding:.75rem 1.4rem; cursor:pointer; width:fit-content;
+}
+button:hover{ background:var(--cta-hover); }
+button.secondary{ background:var(--surface-2); color:var(--ink); border:1px solid var(--border); }
+button.secondary:hover{ background:var(--border); }
+button:disabled{ opacity:.5; cursor:not-allowed; }
+
+/* Order-tracker step pills, like a parcel-tracking timeline */
+.tracker{ display:flex; align-items:center; gap:.4rem; }
+.tracker .step{ display:flex; align-items:center; gap:.5rem; flex:1; }
+.tracker .dot{
+  width:1.6rem; height:1.6rem; border-radius:50%; flex:none;
+  display:flex; align-items:center; justify-content:center;
+  font-size:.75rem; font-weight:600; background:var(--surface-2); color:var(--ink-muted); border:1.5px solid var(--border);
+}
+.tracker .step.done .dot{ background:var(--success); color:#fff; border-color:var(--success); }
+.tracker .step.active .dot{ background:var(--cta); color:#fff; border-color:var(--cta); }
+.tracker .label{ font-size:.72rem; color:var(--ink-muted); font-weight:500; }
+.tracker .step.done .label, .tracker .step.active .label{ color:var(--ink); }
+.tracker .line{ flex:1; height:1.5px; background:var(--border); }
+.tracker .line.done{ background:var(--success); }
+
+.status-chip{ display:inline-flex; align-items:center; gap:.4rem; font-size:.74rem; font-weight:600; padding:.3rem .7rem; border-radius:980px; width:fit-content; }
+.status-chip.awaiting{ background:var(--surface-2); color:var(--ink-muted); }
+.status-chip.locked{ background:var(--gold-soft); color:var(--gold); }
+.status-chip.review{ background:var(--gold-soft); color:var(--gold); }
+.status-chip.released{ background:var(--success-soft); color:var(--success); }
+.status-chip.refund{ background:var(--danger-soft); color:var(--danger); }
+
+.price-tag{ font-weight:600; font-size:1.3rem; letter-spacing:-.01em; }
+.field-row{ display:flex; justify-content:space-between; gap:1rem; font-size:.9rem; padding:.2rem 0; }
+.field-row .k{ color:var(--ink-muted); }
+.field-row .v{ text-align:right; font-weight:500; }
+a.txlink{ font-size:.82rem; color:var(--cta); text-decoration:none; font-weight:500; }
+a.txlink:hover{ text-decoration:underline; }
+
+.order-card{
+  border:1px solid var(--border); border-radius:16px; padding:1.15rem 1.25rem;
+  display:flex; flex-direction:column; gap:.6rem; background:var(--surface);
+}
+.order-card .top-row{ display:flex; justify-content:space-between; align-items:flex-start; gap:.75rem; }
+.order-card .product-icon{
+  width:2.6rem; height:2.6rem; border-radius:12px; background:var(--surface-2); color:var(--ink);
+  display:flex; align-items:center; justify-content:center; font-size:1.25rem; flex:none;
+}
+.note{ font-size:.82rem; color:var(--ink-muted); line-height:1.55; }
+.error{ font-size:.85rem; color:var(--danger); font-weight:500; }
+[hidden]{ display:none !important; }

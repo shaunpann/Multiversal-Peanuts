@@ -1,0 +1,194 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Tideline — Incoming Order</title>
+<link rel="stylesheet" href="/shared.css" />
+</head>
+<body>
+<div class="page">
+  <div class="brand"><span class="mark">📦</span><span class="name">Tideline</span></div>
+
+  <div>
+    <h1 id="deal-title">You've got an incoming order</h1>
+    <p class="lede" id="deal-lede">Loading…</p>
+    <div class="trust-row" style="margin-top:.8rem;">
+      <span class="trust-badge">Payment already committed by the buyer</span>
+    </div>
+  </div>
+
+  <section class="panel">
+    <div class="tracker" id="tracker"></div>
+  </section>
+
+  <section class="panel" id="terms-panel">
+    <h2>Order details</h2>
+    <div id="terms-body"></div>
+  </section>
+
+  <section class="panel" id="address-panel" hidden>
+    <h2>Where should we pay you?</h2>
+    <p class="note">The moment you confirm this, the buyer's payment locks on-chain — reserved for you, released once delivery checks out. Use a testnet XRPL address (starts with "r") for this demo.</p>
+    <form id="address-form" style="display:flex; flex-direction:column; gap:.8rem;">
+      <label>Your payout address (XRPL)
+        <input name="supplierAddress" id="supplier-address-input" type="text" required placeholder="rYourAddress..." class="mono" />
+      </label>
+      <button type="button" class="secondary" id="generate-address-btn">Don't have one? Generate a testnet address for me</button>
+      <button type="submit">Accept order &amp; lock payment</button>
+      <p class="error" id="address-error" hidden></p>
+    </form>
+  </section>
+
+  <section class="panel" id="evidence-panel" hidden>
+    <h2>Show us it's on the way</h2>
+    <p class="note">Our verification agent checks this and pays you automatically the moment it's satisfied — no invoice chasing.</p>
+    <form id="evidence-form" style="display:flex; flex-direction:column; gap:.8rem;">
+      <label>Carrier tracking number
+        <input name="trackingNumber" type="text" required placeholder="DHL-XRPL-99120" />
+      </label>
+      <label>Anything we should know? (quantity, condition, etc.)
+        <textarea name="note" placeholder="Shipped 100 units, packaging intact."></textarea>
+      </label>
+      <label>Photo of the goods or packing list (optional, helps verification go faster)
+        <input name="photo" type="file" accept="image/*" />
+      </label>
+      <button type="submit">Submit &amp; request payout</button>
+      <p class="error" id="evidence-error" hidden></p>
+    </form>
+  </section>
+
+  <section class="panel" id="status-panel" hidden>
+    <h2>Order status</h2>
+    <div id="status-body"></div>
+  </section>
+</div>
+
+<script>
+  const token = new URLSearchParams(location.search).get('token');
+  const dealTitle = document.getElementById('deal-title');
+  const dealLede = document.getElementById('deal-lede');
+  const termsBody = document.getElementById('terms-body');
+  const tracker = document.getElementById('tracker');
+  const addressPanel = document.getElementById('address-panel');
+  const evidencePanel = document.getElementById('evidence-panel');
+  const statusPanel = document.getElementById('status-panel');
+  const statusBody = document.getElementById('status-body');
+
+  function explorer(hash){ return `https://testnet.xrpl.org/transactions/${hash}`; }
+
+  const STEPS = ['Order placed', 'Payment locked', 'Delivery submitted', 'Paid out'];
+  function stepIndexFor(status){
+    if (status === 'AWAITING_SUPPLIER') return 0;
+    if (status === 'LOCKED') return 1;
+    if (status === 'UNDER_REVIEW' || status === 'NEEDS_MANUAL_REVIEW' || status === 'REFUND_PENDING') return 2;
+    if (status === 'RELEASED' || status === 'REFUNDED') return 3;
+    return 0;
+  }
+
+  function renderTracker(status){
+    const active = stepIndexFor(status);
+    tracker.innerHTML = STEPS.map((label, i) => {
+      const cls = i < active ? 'done' : (i === active ? 'active' : '');
+      const dotContent = i < active ? '✓' : (i + 1);
+      const line = i < STEPS.length - 1 ? `<div class="line ${i < active ? 'done' : ''}"></div>` : '';
+      return `<div class="step ${cls}"><div class="dot">${dotContent}</div><span class="label">${label}</span></div>${line}`;
+    }).join('');
+  }
+
+  function renderTerms(d){
+    termsBody.innerHTML = `
+      <div class="field-row"><span class="k">Item</span><span class="v">${d.productName}</span></div>
+      <div class="field-row"><span class="k">Order total</span><span class="price-tag" style="font-size:1.1rem;">$${Number(d.amountUSD).toFixed(2)}</span></div>
+      <div class="field-row"><span class="k">Expected delivery</span><span class="v">${d.deadlineDays} days</span></div>
+      <div class="field-row"><span class="k">Buyer</span><span class="v">${d.buyerContact}</span></div>
+    `;
+  }
+
+  function renderStatus(d){
+    const rows = [];
+    if (d.escrowCreateTxHash) rows.push(`<div class="field-row"><span class="k">Payment locked</span><a class="txlink mono v" href="${explorer(d.escrowCreateTxHash)}" target="_blank" rel="noopener">view receipt →</a></div>`);
+    if (d.verification) {
+      const label = d.verification.passed === true ? 'Passed' : d.verification.passed === false ? 'Needs attention' : 'Awaiting buyer review';
+      const methodLabel = d.verification.method === 'ai' ? 'AI review' : d.verification.method === 'manual' ? 'buyer review' : 'automated check';
+      rows.push(`<div class="field-row"><span class="k">Verification</span><span class="v">${label} (${methodLabel})</span></div>`);
+    }
+    if (d.escrowFinishTxHash) rows.push(`<div class="field-row"><span class="k">Paid out</span><a class="txlink mono v" href="${explorer(d.escrowFinishTxHash)}" target="_blank" rel="noopener">view receipt →</a></div>`);
+    if (d.escrowCancelTxHash) rows.push(`<div class="field-row"><span class="k">Refunded to buyer</span><a class="txlink mono v" href="${explorer(d.escrowCancelTxHash)}" target="_blank" rel="noopener">view receipt →</a></div>`);
+    if (d.verification && !d.verification.passed) rows.push(`<p class="note">${d.verification.reasoning}</p>`);
+    statusBody.innerHTML = rows.join('') || '<p class="note">No updates yet — check back shortly.</p>';
+  }
+
+  function render(d){
+    dealTitle.textContent = `Order ${d.id}`;
+    dealLede.textContent = `From ${d.buyerContact} — ${d.productName}`;
+    renderTracker(d.status);
+    renderTerms(d);
+
+    addressPanel.hidden = d.status !== 'AWAITING_SUPPLIER';
+    evidencePanel.hidden = d.status !== 'LOCKED';
+    statusPanel.hidden = d.status === 'AWAITING_SUPPLIER';
+    if (!statusPanel.hidden) renderStatus(d);
+  }
+
+  async function load(){
+    const res = await fetch(`/api/invite/${token}`);
+    if (!res.ok){
+      dealLede.textContent = 'This order link is invalid or has expired.';
+      return;
+    }
+    const { deal } = await res.json();
+    render(deal);
+  }
+
+  document.getElementById('generate-address-btn').addEventListener('click', async (e) => {
+    const btn = e.target;
+    btn.disabled = true; btn.textContent = 'Generating & funding on testnet…';
+    try {
+      const res = await fetch('/api/testnet-address', { method: 'POST' });
+      const body = await res.json();
+      if (!res.ok) throw new Error(body.error || 'Could not generate an address');
+      document.getElementById('supplier-address-input').value = body.address;
+    } catch (err) {
+      alert(err.message);
+    } finally {
+      btn.disabled = false; btn.textContent = "Don't have one? Generate a testnet address for me";
+    }
+  });
+
+  document.getElementById('address-form').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const err = document.getElementById('address-error');
+    err.hidden = true;
+    const submitBtn = e.target.querySelector('button');
+    submitBtn.disabled = true; submitBtn.textContent = 'Locking payment…';
+    const data = Object.fromEntries(new FormData(e.target).entries());
+    const res = await fetch(`/api/invite/${token}/address`, {
+      method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(data),
+    });
+    const body = await res.json();
+    submitBtn.disabled = false; submitBtn.textContent = 'Accept order & lock payment';
+    if (!res.ok){ err.textContent = body.error; err.hidden = false; return; }
+    render(body.deal);
+  });
+
+  document.getElementById('evidence-form').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const err = document.getElementById('evidence-error');
+    err.hidden = true;
+    const submitBtn = e.target.querySelector('button');
+    submitBtn.disabled = true; submitBtn.textContent = 'Verification agent reviewing…';
+
+    const formData = new FormData(e.target);
+    const res = await fetch(`/api/invite/${token}/evidence`, { method: 'POST', body: formData });
+    const body = await res.json();
+    submitBtn.disabled = false; submitBtn.textContent = 'Submit & request payout';
+    if (!res.ok){ err.textContent = body.error; err.hidden = false; return; }
+    render(body.deal);
+  });
+
+  load();
+  setInterval(load, 5000);
+</script>
+</body>
+</html>

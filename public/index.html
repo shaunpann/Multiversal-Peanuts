@@ -1,0 +1,302 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Tideline — Start an Order</title>
+<link rel="stylesheet" href="/shared.css" />
+<style>
+  /* This page overrides shared.css's centered-column body layout to build
+     full-bleed sections (nav, hero, story beats) the way apple.com does —
+     edge-to-edge background color, content constrained inside. */
+  html{ scroll-behavior:smooth; }
+  @media (prefers-reduced-motion: reduce){ html{ scroll-behavior:auto; } }
+  body{ display:block; padding:0; }
+  .wrap{ max-width:980px; margin:0 auto; padding:0 1.5rem; }
+  .wrap-narrow{ max-width:640px; margin:0 auto; padding:0 1.5rem; }
+
+  .topnav{
+    position:sticky; top:0; z-index:20;
+    background:rgba(255,255,255,.8); backdrop-filter:saturate(180%) blur(14px);
+    -webkit-backdrop-filter:saturate(180%) blur(14px);
+    border-bottom:1px solid var(--border);
+  }
+  .topnav .row{ display:flex; align-items:center; justify-content:space-between; padding:.9rem 1.5rem; max-width:980px; margin:0 auto; }
+  .topnav .links{ display:flex; align-items:center; gap:1.75rem; }
+  .topnav .links a{ font-size:.82rem; font-weight:500; color:var(--ink); text-decoration:none; }
+  .topnav .links a.cta-link{ color:var(--cta); }
+
+  /* Hero — full-bleed dark, the one deliberate departure from the light
+     system, the way Apple's own product intros commit to a dark stage. */
+  .hero{ background:#000; color:#fff; text-align:center; padding:6.5rem 1.5rem 5.5rem; }
+  .hero .eyebrow{ color:#98989D; }
+  .hero h1{
+    color:#fff; font-size:clamp(2.4rem, 6vw, 3.6rem); font-weight:600;
+    letter-spacing:-.02em; line-height:1.08; max-width:16ch; margin:.6rem auto 0;
+  }
+  .hero p.lede{ color:#A1A1A6; margin:1.25rem auto 0; text-align:center; font-size:1.15rem; }
+  .hero .cta-row{ display:flex; align-items:center; justify-content:center; gap:1.6rem; margin-top:2.2rem; flex-wrap:wrap; }
+  .hero .cta-row button{ font-size:1rem; padding:.8rem 1.7rem; }
+  .hero .link-chevron{ color:#fff; font-size:1rem; font-weight:500; text-decoration:none; display:inline-flex; align-items:center; gap:.3rem; }
+  .hero .link-chevron .chev{ transition:transform .2s ease; }
+  .hero .link-chevron:hover .chev{ transform:translateX(3px); }
+
+  /* Story beats — alternating light/near-black sections, each a single idea. */
+  .beat{ padding:5rem 1.5rem; text-align:center; }
+  .beat.light{ background:var(--surface); }
+  .beat.tint{ background:var(--surface-2); }
+  .beat.dark{ background:#000; color:#fff; }
+  .beat h2{ font-size:clamp(1.7rem, 4vw, 2.3rem); font-weight:600; letter-spacing:-.015em; line-height:1.15; max-width:20ch; margin:0 auto; }
+  .beat.dark h2{ color:#fff; }
+  .beat p.beat-sub{ color:var(--ink-muted); font-size:1.05rem; max-width:52ch; margin:1rem auto 0; line-height:1.55; }
+  .beat.dark p.beat-sub{ color:#A1A1A6; }
+
+  .steps-grid{ display:grid; grid-template-columns:repeat(4,1fr); gap:1rem; margin-top:2.75rem; text-align:left; }
+  @media (max-width:800px){ .steps-grid{ grid-template-columns:repeat(2,1fr); } }
+  .step-card{
+    background:var(--surface); border:1px solid var(--border); border-radius:18px;
+    padding:1.4rem 1.3rem; display:flex; flex-direction:column; gap:.5rem;
+  }
+  .step-card .num{ font-size:.78rem; font-weight:600; color:var(--cta); }
+  .step-card h3{ font-size:1rem; font-weight:600; margin:0; letter-spacing:-.005em; }
+  .step-card p{ font-size:.85rem; color:var(--ink-muted); line-height:1.5; margin:0; }
+
+  /* Scroll reveal — sections ease in as they enter view, Apple's product-page cadence. */
+  .reveal{ opacity:0; transform:translateY(26px) scale(.99); transition:opacity .7s cubic-bezier(.22,.61,.36,1), transform .7s cubic-bezier(.22,.61,.36,1); }
+  .reveal.in-view{ opacity:1; transform:none; }
+  @media (prefers-reduced-motion: reduce){
+    .reveal{ opacity:1 !important; transform:none !important; transition:none !important; }
+  }
+
+  .content-stack{ display:flex; flex-direction:column; gap:1.5rem; padding:0 1.5rem; }
+  .section-pad{ padding:3.5rem 0; }
+</style>
+</head>
+<body>
+  <nav class="topnav">
+    <div class="row">
+      <div class="brand"><span class="mark">📦</span><span class="name">Tideline</span></div>
+      <div class="links">
+        <a href="#how-it-works">How it works</a>
+        <a href="#order-form" class="cta-link">Start an order</a>
+      </div>
+    </div>
+  </nav>
+
+  <section class="hero">
+    <span class="eyebrow">Cross‑border settlement, protected</span>
+    <h1>Pay any supplier.<br />Only when it arrives.</h1>
+    <p class="lede">Found them on WhatsApp, email, a trade show — anywhere. Keep talking to them however you like. Bring the deal here, and we hold the payment until delivery is verified.</p>
+    <div class="cta-row">
+      <a href="#order-form"><button>Start an order</button></a>
+      <a href="#how-it-works" class="link-chevron">How it works <span class="chev">›</span></a>
+    </div>
+  </section>
+
+  <section class="beat light reveal" id="how-it-works">
+    <div class="wrap">
+      <h2>Four steps. No marketplace required.</h2>
+      <p class="beat-sub">The supplier never has to sign up anywhere — they just confirm where to get paid.</p>
+      <div class="steps-grid">
+        <div class="step-card"><div class="num">01</div><h3>Place your order</h3><p>Enter what you agreed and how much.</p></div>
+        <div class="step-card"><div class="num">02</div><h3>Supplier confirms</h3><p>They add a payout address. Payment locks on‑chain instantly.</p></div>
+        <div class="step-card"><div class="num">03</div><h3>Proof of delivery</h3><p>Tracking number, a note, a photo — whatever shows it's real.</p></div>
+        <div class="step-card"><div class="num">04</div><h3>Paid automatically</h3><p>A verification agent checks it and releases funds.</p></div>
+      </div>
+    </div>
+  </section>
+
+  <section class="beat dark reveal">
+    <div class="wrap-narrow">
+      <h2>Payment only moves when delivery is verified.</h2>
+      <p class="beat-sub">Not a promise between two strangers — a condition enforced by the ledger itself. If it doesn't check out, the funds come back to you.</p>
+    </div>
+  </section>
+
+  <div class="section-pad">
+    <div class="content-stack">
+      <section class="panel reveal" id="order-form">
+        <h2>Start a new order</h2>
+        <form id="deal-form" style="display:flex; flex-direction:column; gap:.9rem;">
+          <label>Your contact (email or WhatsApp)
+            <input name="buyerContact" type="text" required placeholder="you@company.com" />
+          </label>
+          <label>Supplier's contact (just for your records — we won't message them)
+            <input name="supplierContact" type="text" required placeholder="supplier@factory.cn" />
+          </label>
+          <label>What are you ordering?
+            <input name="productName" type="text" required placeholder="100x Custom Anodized Aluminum Enclosures" />
+          </label>
+          <label>Order total (USD)
+            <input name="amountUSD" type="number" min="1" step="0.01" required placeholder="3500" />
+          </label>
+          <label>Expected delivery (days)
+            <input name="deadlineDays" type="number" min="1" value="14" />
+          </label>
+          <button type="submit">Place order & get supplier link</button>
+          <p class="error" id="form-error" hidden></p>
+        </form>
+      </section>
+
+      <section class="panel reveal" id="invite-panel" hidden>
+        <h2>Send this to your supplier</h2>
+        <p class="note">They'll confirm where to receive payment, and later upload proof of shipment. That's the only part of this they see.</p>
+        <div class="order-card">
+          <span class="mono" id="invite-url" style="word-break:break-all;"></span>
+          <button type="button" class="secondary" id="copy-btn">Copy link</button>
+        </div>
+      </section>
+
+      <section class="panel reveal">
+        <h2>Your orders</h2>
+        <div id="deal-list" style="display:flex; flex-direction:column; gap:.9rem;">
+          <p class="note">Enter your contact above and place an order to see it tracked here.</p>
+        </div>
+      </section>
+    </div>
+  </div>
+
+<script>
+  const form = document.getElementById('deal-form');
+  const formError = document.getElementById('form-error');
+  const invitePanel = document.getElementById('invite-panel');
+  const inviteUrl = document.getElementById('invite-url');
+  const dealList = document.getElementById('deal-list');
+  let currentBuyerContact = '';
+
+  const STATUS_LABEL = {
+    AWAITING_SUPPLIER: ['awaiting', 'Waiting on supplier'],
+    LOCKED: ['locked', 'Payment protected'],
+    UNDER_REVIEW: ['review', 'Checking delivery'],
+    NEEDS_MANUAL_REVIEW: ['review', 'Your review needed'],
+    RELEASED: ['released', 'Delivered & paid'],
+    REFUND_PENDING: ['refund', 'Refund available'],
+    REFUNDED: ['refund', 'Refunded'],
+  };
+
+  function explorer(hash){ return `https://testnet.xrpl.org/transactions/${hash}`; }
+
+  async function loadDeals(buyerContact){
+    if (!buyerContact) return;
+    const res = await fetch(`/api/deals?buyerContact=${encodeURIComponent(buyerContact)}`);
+    const { deals } = await res.json();
+    if (!deals.length){
+      dealList.innerHTML = '<p class="note">No orders yet — place one above to get started.</p>';
+      return;
+    }
+    dealList.innerHTML = deals.map(d => {
+      const [cls, label] = STATUS_LABEL[d.status] || ['awaiting', d.status];
+      const txRows = [
+        d.escrowCreateTxHash ? `<div class="field-row"><span class="k">Payment locked</span><a class="txlink mono v" href="${explorer(d.escrowCreateTxHash)}" target="_blank" rel="noopener">view receipt →</a></div>` : '',
+        d.escrowFinishTxHash ? `<div class="field-row"><span class="k">Paid to supplier</span><a class="txlink mono v" href="${explorer(d.escrowFinishTxHash)}" target="_blank" rel="noopener">view receipt →</a></div>` : '',
+        d.escrowCancelTxHash ? `<div class="field-row"><span class="k">Refunded to you</span><a class="txlink mono v" href="${explorer(d.escrowCancelTxHash)}" target="_blank" rel="noopener">view receipt →</a></div>` : '',
+      ].join('');
+      const refundBtn = d.status === 'REFUND_PENDING'
+        ? `<button type="button" class="secondary" data-refund="${d.id}">Claim refund</button>`
+        : '';
+
+      const manualReview = d.status === 'NEEDS_MANUAL_REVIEW' ? `
+        <div class="note" style="border-left:2px solid var(--gold); padding-left:.7rem;">
+          ${d.verification ? d.verification.reasoning : 'The verification agent could not judge this evidence automatically — take a look yourself.'}
+        </div>
+        ${d.evidence ? `
+          <div class="field-row"><span class="k">Tracking</span><span class="v">${d.evidence.trackingNumber || '—'}</span></div>
+          <div class="field-row"><span class="k">Note</span><span class="v">${d.evidence.note || '—'}</span></div>
+          ${d.evidence.imagePath ? `<img src="${d.evidence.imagePath}" alt="Delivery evidence photo" style="max-width:100%; border-radius:12px; border:1px solid var(--border);" />` : ''}
+        ` : ''}
+        <div style="display:flex; gap:.6rem;">
+          <button type="button" data-approve="${d.id}">Looks good, release payment</button>
+          <button type="button" class="secondary" data-reject="${d.id}">Doesn't check out</button>
+        </div>
+      ` : '';
+
+      return `<div class="order-card">
+        <div class="top-row">
+          <div class="product-icon">📦</div>
+          <div style="flex:1;">
+            <div class="field-row" style="padding:0;"><span class="k" style="font-weight:600; color:var(--ink);">${d.productName}</span><span class="status-chip ${cls}">${label}</span></div>
+            <div class="field-row"><span class="k">Order</span><span class="v mono">${d.id}</span></div>
+          </div>
+        </div>
+        <div class="field-row"><span class="k">Total</span><span class="price-tag">$${Number(d.amountUSD).toFixed(2)}</span></div>
+        ${txRows}
+        ${refundBtn}
+        ${manualReview}
+      </div>`;
+    }).join('');
+
+    dealList.querySelectorAll('[data-refund]').forEach(btn => {
+      btn.addEventListener('click', async () => {
+        btn.disabled = true; btn.textContent = 'Processing…';
+        const res = await fetch(`/api/deals/${btn.dataset.refund}/refund`, { method: 'POST' });
+        const body = await res.json();
+        if (!res.ok) alert(body.error || 'Refund attempt failed — the protection window may not have elapsed yet.');
+        await loadDeals(currentBuyerContact);
+      });
+    });
+
+    dealList.querySelectorAll('[data-approve], [data-reject]').forEach(btn => {
+      btn.addEventListener('click', async () => {
+        const id = btn.dataset.approve || btn.dataset.reject;
+        const approve = Boolean(btn.dataset.approve);
+        btn.disabled = true; btn.textContent = 'Submitting…';
+        const res = await fetch(`/api/deals/${id}/manual-decision`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ approve }),
+        });
+        const body = await res.json();
+        if (!res.ok) alert(body.error || 'Could not record your decision.');
+        await loadDeals(currentBuyerContact);
+      });
+    });
+  }
+
+  form.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    formError.hidden = true;
+    const data = Object.fromEntries(new FormData(form).entries());
+    currentBuyerContact = data.buyerContact;
+
+    const res = await fetch('/api/deals', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(data),
+    });
+    const body = await res.json();
+    if (!res.ok){
+      formError.textContent = body.error || 'Could not place this order.';
+      formError.hidden = false;
+      return;
+    }
+
+    inviteUrl.textContent = `${location.origin}${body.inviteUrl}`;
+    invitePanel.hidden = false;
+    form.reset();
+    await loadDeals(currentBuyerContact);
+  });
+
+  document.getElementById('copy-btn').addEventListener('click', () => {
+    navigator.clipboard?.writeText(inviteUrl.textContent);
+  });
+
+  setInterval(() => { if (currentBuyerContact) loadDeals(currentBuyerContact); }, 4000);
+
+  // Scroll-reveal for below-the-fold sections.
+  const revealTargets = document.querySelectorAll('.reveal');
+  if ('IntersectionObserver' in window && revealTargets.length){
+    const observer = new IntersectionObserver((entries) => {
+      entries.forEach(entry => {
+        if (entry.isIntersecting){
+          entry.target.classList.add('in-view');
+          observer.unobserve(entry.target);
+        }
+      });
+    }, { threshold: 0.15 });
+    revealTargets.forEach(el => observer.observe(el));
+  } else {
+    revealTargets.forEach(el => el.classList.add('in-view'));
+  }
+</script>
+</body>
+</html>
