@@ -1,4 +1,4 @@
-# Tideline — agentic cross-border B2B settlement on XRPL
+# Peanuts — agentic cross-border B2B settlement on XRPL
 
 > Find your supplier anywhere. Negotiate anywhere. Settle here.
 >
@@ -22,7 +22,7 @@ find them through WhatsApp, a referral, or a trade show. Below the practical
 letter-of-credit threshold and outside a marketplace, the only instrument is
 *wire 30% and hope*.
 
-Tideline is not another marketplace. It is the layer you bring a deal to once
+Peanuts is not another marketplace. It is the layer you bring a deal to once
 you already have one.
 
 ---

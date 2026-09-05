@@ -1,6 +1,6 @@
 // src/server/index.ts
 //
-// Tideline web app: the real buyer/supplier-facing settlement flow.
+// Peanuts web app: the real buyer/supplier-facing settlement flow.
 //   Buyer creates a deal -> sends the supplier a link (WhatsApp/email/etc,
 //   outside this app) -> supplier submits their XRPL address (locks funds)
 //   -> supplier submits delivery evidence -> verification agent reviews it
@@ -371,7 +371,7 @@ app.post("/api/invite/:token/address", async (req, res) => {
       amountDrops: usdToDemoDrops(deal.amountUSD),
       condition,
       cancelAfterSeconds: CANCEL_AFTER_SECONDS,
-      memo: { agent_id: "tideline-web", deal_id: deal.id, action: "lock_escrow" },
+      memo: { agent_id: "peanuts-web", deal_id: deal.id, action: "lock_escrow" },
     });
 
     if (created.resultCode !== "tesSUCCESS") {
@@ -421,7 +421,7 @@ async function settleDeal(
       sequence: deal.escrowSequence,
       condition: deal.escrowCondition,
       fulfillment: deal.escrowFulfillment,
-      memo: { agent_id: "tideline-web", deal_id: deal.id, action: `release_${decision.method}` },
+      memo: { agent_id: "peanuts-web", deal_id: deal.id, action: `release_${decision.method}` },
     });
     return updateDeal(deal.id, {
       status: finished.resultCode === "tesSUCCESS" ? "RELEASED" : "UNDER_REVIEW",
@@ -534,7 +534,7 @@ app.post("/api/deals/:id/refund", async (req, res) => {
       client,
       ownerWallet: buyerWallet,
       sequence: deal.escrowSequence,
-      memo: { agent_id: "tideline-web", deal_id: deal.id, action: "refund_after_failed_verification" },
+      memo: { agent_id: "peanuts-web", deal_id: deal.id, action: "refund_after_failed_verification" },
     });
 
     const updated = updateDeal(deal.id, {
@@ -552,6 +552,6 @@ app.post("/api/deals/:id/refund", async (req, res) => {
 });
 
 app.listen(PORT, () => {
-  console.log(`Tideline server listening on http://localhost:${PORT}`);
+  console.log(`Peanuts server listening on http://localhost:${PORT}`);
   console.log(`ANTHROPIC_API_KEY ${process.env.ANTHROPIC_API_KEY ? "set — AI evidence review enabled" : "not set — using fallback rule-based review"}`);
 });
