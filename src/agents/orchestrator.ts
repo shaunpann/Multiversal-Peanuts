@@ -51,7 +51,7 @@ export class TradeOrchestrator {
     // needs to decide, unattended.
     const policy = new PolicyEngine(DEFAULT_POLICY, onLogEvent);
     const client = await getClient();
-    const ctx: PaidCallContext = { client, policy, emit: onLogEvent };
+    const ctx: PaidCallContext = { client, policy, emit: onLogEvent, paid: new Map() };
 
     try {
     const selectedSupplier = await this.selectVerifiedSupplier(candidateSuppliers, ctx);
@@ -216,6 +216,9 @@ export class TradeOrchestrator {
    */
   public async recommendDeal(
     intent: BuyerIntent,
+    /** The suppliers the buyer already deals with. Discovery happened on
+     *  WhatsApp, email or a trade show — not here. */
+    shortlist: SupplierQuote[],
     onLogEvent: (e: AgentLogEvent) => void
   ): Promise<
     | { supplier: SupplierQuote; agreedUnitPriceUSD: number; totalUSD: number; spendXrp: number; receipts: unknown[] }
@@ -224,18 +227,19 @@ export class TradeOrchestrator {
     onLogEvent({
       type: "agent_action",
       agent: "buyer",
-      action: "sourcing_suppliers",
-      message: `Buyer Agent searching open networks for ${intent.productName}...`,
+      action: "shortlist_received",
+      message:
+        `Checking the ${shortlist.length} supplier${shortlist.length === 1 ? "" : "s"} you already deal with for ` +
+        `${intent.quantity}x ${intent.productName}: ` +
+        shortlist.map((s) => `${s.supplierName} ($${s.unitPriceUSD}/unit)`).join(", "),
       timestamp: new Date().toISOString(),
     });
 
-    const candidates = (await searchSuppliers(intent.productName)).sort(
-      (a, b) => a.unitPriceUSD - b.unitPriceUSD
-    );
+    const candidates = [...shortlist].sort((a, b) => a.unitPriceUSD - b.unitPriceUSD);
 
     const policy = new PolicyEngine(DEFAULT_POLICY, onLogEvent);
     const client = await getClient();
-    const ctx: PaidCallContext = { client, policy, emit: onLogEvent };
+    const ctx: PaidCallContext = { client, policy, emit: onLogEvent, paid: new Map() };
 
     try {
       const supplier = await this.selectVerifiedSupplier(candidates, ctx);
@@ -316,15 +320,22 @@ export class TradeOrchestrator {
         type: "agent_action",
         agent: "buyer",
         action: "checking_supplier",
-        message: `${candidate.supplierName} is the cheapest remaining option at $${candidate.unitPriceUSD}/unit. Verifying before committing.`,
+        message: `${candidate.supplierName} is your cheapest quote at $${candidate.unitPriceUSD}/unit. Checking them before committing.`,
         timestamp: new Date().toISOString(),
       });
 
-      const result = await callPaidService<{ verdict: "pass" | "fail"; reason: string }>(
+      const result = await callPaidService<{
+        verdict: "pass" | "fail";
+        reason: string;
+        legalName?: string;
+        registrationNo?: string;
+        jurisdiction?: string;
+        creditBand?: string;
+      }>(
         ctx,
         "verify-business",
-        `/api/paid/verify-business/${candidate.supplierId}`,
-        `Decides whether ${candidate.supplierName} is eligible at all`
+        `/api/paid/verify-business/${encodeURIComponent(candidate.supplierName)}`,
+        `Decides whether ${candidate.supplierName} is safe to send money to`
       );
 
       if (!result.ok || !result.data) {
@@ -344,7 +355,7 @@ export class TradeOrchestrator {
           type: "agent_action",
           agent: "buyer",
           action: "supplier_rejected",
-          message: `Rejected ${candidate.supplierName} despite the lowest price — ${result.data.reason}`,
+          message: `Ruled out ${candidate.supplierName} despite the lowest quote — ${result.data.reason}`,
           timestamp: new Date().toISOString(),
           data: { supplierId: candidate.supplierId },
         });
@@ -355,9 +366,11 @@ export class TradeOrchestrator {
         type: "agent_action",
         agent: "buyer",
         action: "supplier_selected",
-        message: `Selected ${candidate.supplierName} — ${result.data.reason}`,
+        message:
+          `Selected ${candidate.supplierName} — ${result.data.reason}` +
+          (result.data.jurisdiction ? ` Registered ${result.data.jurisdiction}, ${result.data.registrationNo}.` : ""),
         timestamp: new Date().toISOString(),
-        data: { supplierId: candidate.supplierId },
+        data: { supplierId: candidate.supplierId, registry: result.data },
       });
       return candidate;
     }
@@ -369,7 +382,7 @@ export class TradeOrchestrator {
         type: "agent_action",
         agent: "system",
         action: "verification_skipped",
-        message: "No verification service reachable — is `npm run server` running? Proceeding UNVERIFIED on the cheapest quote.",
+        message: "No registry service reachable — is `npm run server` running? Proceeding UNVERIFIED on the cheapest quote.",
         timestamp: new Date().toISOString(),
       });
       return candidates[0];

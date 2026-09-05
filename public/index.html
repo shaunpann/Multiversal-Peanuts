@@ -31,10 +31,10 @@
      Deliberately dark in both themes: this is the stage, not a surface. */
   .hero{
     position:relative; isolation:isolate; overflow:hidden;
-    background:#050609; color:#fff; text-align:center;
+    background:#050609; color:#fff;
     padding:9rem 1.5rem 8rem;
     min-height:min(94vh, 880px);
-    display:flex; align-items:center; justify-content:center;
+    display:flex; align-items:center;
   }
   .hero #galaxy{
     position:absolute; inset:0; width:100%; height:100%;
@@ -44,18 +44,21 @@
   .hero::after{
     content:""; position:absolute; inset:0; z-index:-1; pointer-events:none;
     background:
-      radial-gradient(120% 90% at 50% 50%, rgba(5,6,9,.72) 0%, rgba(5,6,9,.30) 42%, rgba(5,6,9,0) 72%),
-      linear-gradient(to bottom, rgba(5,6,9,.55) 0%, rgba(5,6,9,0) 22%, rgba(5,6,9,0) 76%, var(--bg) 100%);
+      linear-gradient(to right, rgba(5,6,9,.90) 0%, rgba(5,6,9,.80) 26%, rgba(5,6,9,.52) 42%, rgba(5,6,9,.20) 56%, rgba(5,6,9,.05) 68%, rgba(5,6,9,0) 80%),
+      linear-gradient(to bottom, rgba(5,6,9,.5) 0%, rgba(5,6,9,0) 16%, rgba(5,6,9,0) 84%, var(--bg) 100%);
   }
   .hero{ cursor:grab; }
   .hero.is-grabbing{ cursor:grabbing; }
-  .hero-content{ position:relative; max-width:52rem; }
+  .hero-content{
+    position:relative; text-align:left;
+    width:min(44rem, 52%); margin-left:max(2rem, calc((100vw - 1040px) / 2 + 1.5rem));
+  }
   /* The hero copy must not eat pointer events meant for the field, but the
      buttons inside it still need them. */
   .hero-content{ pointer-events:none; }
   .hero-content a, .hero-content button{ pointer-events:auto; }
   .galaxy-hint{
-    position:absolute; left:50%; bottom:2.2rem; transform:translateX(-50%);
+    position:absolute; left:66%; bottom:2.2rem; transform:translateX(-50%);
     margin:0; font-size:.78rem; letter-spacing:.02em; color:rgba(255,255,255,.42);
     pointer-events:none; transition:opacity .5s ease; animation:hint-in 1s ease-out .8s both;
   }
@@ -67,14 +70,14 @@
   }
   .hero .eyebrow{ color:rgba(255,255,255,.62); }
   .hero h1{
-    color:#fff;
-    font-size:clamp(2.6rem, 6.5vw, 4.4rem); font-weight:600;
-    letter-spacing:-.035em; line-height:1.04; max-width:15ch; margin:1rem auto 0;
+    color:#fff; margin-left:0;
+    font-size:clamp(2.4rem, 4.6vw, 3.9rem); font-weight:600;
+    letter-spacing:-.035em; line-height:1.05; max-width:16ch; margin:1rem 0 0;
     text-shadow:0 2px 40px rgba(0,0,0,.55);
   }
   .hero p.lede{
-    color:rgba(255,255,255,.72); margin:1.4rem auto 0; text-align:center;
-    font-size:1.12rem; max-width:56ch; text-shadow:0 1px 24px rgba(0,0,0,.6);
+    color:rgba(255,255,255,.72); margin:1.4rem 0 0; text-align:left;
+    font-size:1.1rem; max-width:44ch; text-shadow:0 1px 24px rgba(0,0,0,.6);
   }
   .hero .cta-row button{ background:#fff; color:#0D0D0D; }
   .hero .cta-row button:hover{ background:rgba(255,255,255,.86); }
@@ -83,7 +86,7 @@
 
   /* The nav sits over the dark stage until the page scrolls past it. */
   .topnav{ background:color-mix(in srgb, var(--bg) 82%, transparent); }
-  .hero .cta-row{ display:flex; align-items:center; justify-content:center; gap:1.2rem; margin-top:2.4rem; flex-wrap:wrap; }
+  .hero .cta-row{ display:flex; align-items:center; justify-content:flex-start; gap:1.2rem; margin-top:2.4rem; flex-wrap:wrap; }
   .hero .cta-row button{ font-size:.98rem; padding:.78rem 1.7rem; }
   .hero .link-chevron{
     color:var(--ink); font-size:.95rem; font-weight:450; text-decoration:none;
@@ -116,6 +119,33 @@
   .step-card p{ font-size:.88rem; color:var(--ink-muted); line-height:1.55; margin:0; }
 
   /* Agent activity feed */
+  .agent-log{
+    margin-top:1.1rem; display:flex; flex-direction:column; gap:.35rem;
+    max-height:340px; overflow-y:auto; padding:.6rem 0;
+    mask-image:linear-gradient(to bottom, transparent 0, #000 18px, #000 calc(100% - 6px), transparent 100%);
+    -webkit-mask-image:linear-gradient(to bottom, transparent 0, #000 18px, #000 calc(100% - 6px), transparent 100%);
+  }
+  .manual-toggle-row{ display:flex; justify-content:center; }
+  .manual-toggle{
+    background:transparent; border:0; color:var(--ink-muted);
+    font-size:.88rem; font-weight:450; padding:.5rem .25rem; border-radius:0;
+    border-bottom:1px solid var(--border); width:auto;
+  }
+  .manual-toggle:hover{ background:transparent; color:var(--ink); border-bottom-color:var(--ink); }
+  .context-box{
+    border:1px solid var(--border); border-radius:var(--radius);
+    background:var(--surface-2); padding:1.15rem 1.25rem; margin-bottom:1.4rem;
+    display:flex; flex-direction:column; gap:.8rem;
+  }
+  .context-box textarea{ width:100%; font-size:.92rem; line-height:1.55; }
+  #context-summary.is-fallback{ color:var(--warn); }
+  .supplier-row{ display:grid; grid-template-columns:1.5fr 1.5fr .7fr auto; gap:.5rem; }
+  .supplier-row input{ width:100%; }
+  .supplier-row .s-remove{
+    padding:0 .7rem; font-size:1rem; line-height:1; color:var(--ink-muted);
+    border-radius:var(--radius-sm);
+  }
+  @media (max-width:700px){ .supplier-row{ grid-template-columns:1fr 1fr; } }
   .agent-line{ padding:.3rem 0 .3rem .85rem; border-left:1px solid var(--border); }
   .agent-line.is-payment{ border-left-color:var(--ink); }
   .agent-line .who{ font-size:.68rem; letter-spacing:.04em; text-transform:uppercase; color:var(--ink-muted); }
@@ -128,6 +158,19 @@
     .reveal{ opacity:1 !important; transform:none !important; transition:none !important; }
   }
 
+  @media (max-width:900px){
+    .hero{ justify-content:center; padding-top:7rem; }
+    .hero-content{ width:100%; max-width:36rem; margin:0 auto; text-align:center; }
+    .hero h1{ margin:1rem auto 0; max-width:15ch; }
+    .hero p.lede{ margin:1.4rem auto 0; text-align:center; }
+    .hero .cta-row{ justify-content:center; }
+    .hero::after{ background:
+      radial-gradient(70% 40% at 50% 42%, rgba(5,6,9,.7) 0%, rgba(5,6,9,.2) 60%, rgba(5,6,9,0) 100%),
+      linear-gradient(to bottom, rgba(5,6,9,.5) 0%, rgba(5,6,9,0) 16%, rgba(5,6,9,0) 84%, var(--bg) 100%); }
+    .galaxy-hint{ left:50%; }
+  }
+
+  #agent-panel, #order-form{ scroll-margin-top:5rem; }
   .content-stack{ display:flex; flex-direction:column; gap:1.5rem; padding:0 1.5rem; max-width:1040px; margin:0 auto; }
   .section-pad{ padding:4rem 0; }
 </style>
@@ -138,7 +181,8 @@
       <div class="brand"><span class="mark">📦</span><span class="name">Tideline</span></div>
       <div class="links">
         <a href="#how-it-works">How it works</a>
-        <a href="#order-form" class="cta-link">Start an order</a>
+        <a href="/agent.html">Agent</a>
+        <a href="#agent-panel" class="cta-link">Start an order</a>
       </div>
     </div>
   </nav>
@@ -150,7 +194,7 @@
     <h1>Pay any supplier.<br />Only when it arrives.</h1>
     <p class="lede">Found them on WhatsApp, email, a trade show — anywhere. Keep talking to them however you like. Bring the deal here, and we hold the payment until delivery is verified.</p>
     <div class="cta-row">
-      <a href="#order-form"><button>Start an order</button></a>
+      <a href="#agent-panel"><button>Start an order</button></a>
       <a href="#how-it-works" class="link-chevron">How it works <span class="chev">›</span></a>
     </div>
     </div>
@@ -180,10 +224,20 @@
   <div class="section-pad">
     <div class="content-stack">
       <section class="panel reveal" id="agent-panel">
-        <h2>Let the agent source it</h2>
-        <p class="note">Give it a budget and step back. It searches, <strong>pays for its own background checks</strong>, negotiates, and comes back with one recommendation. You approve — it never moves your money on its own.</p>
+        <h2>Check your suppliers before you commit</h2>
+        <p class="note">You found them on WhatsApp, email, a trade show — wherever. Put the quotes you already have below. The agent <strong>pays for its own registry checks</strong>, prices the freight and duty, negotiates, and comes back with one recommendation. You approve — it never moves your money on its own.</p>
+        <div class="context-box">
+          <label>Paste the thread — WhatsApp, email, whatever you already have
+            <textarea id="context-text" rows="5" placeholder="Need 100 aluminium enclosures, budget 4000 usd, delivery in 3 weeks.&#10;&#10;Dongguan Rapid Manufacturing (wa +86 138 0000 111) quoted $31/unit, 6 days.&#10;Shenzhen Precision Tech — sales@szprecision.cn — $35 per unit, 5 days.&#10;Global Components Ltd offers $38 each."></textarea>
+          </label>
+          <div style="display:flex; align-items:center; gap:.8rem; flex-wrap:wrap;">
+            <button type="button" class="secondary" id="read-context">Read this</button>
+            <span class="note" id="context-summary"></span>
+          </div>
+        </div>
+
         <form id="agent-form" style="display:flex; flex-direction:column; gap:.9rem;">
-          <label>What do you need?
+          <label>What are you buying?
             <input name="productName" type="text" required placeholder="aluminum enclosures" value="aluminum enclosures" />
           </label>
           <div style="display:flex; gap:.9rem;">
@@ -194,7 +248,14 @@
               <input name="maxBudgetUSD" type="number" min="1" value="4000" />
             </label>
           </div>
-          <button type="submit" id="agent-go">Start sourcing</button>
+
+          <div>
+            <div class="sub" style="color:var(--ink-2); font-size:.85rem; margin-bottom:.45rem;">Quotes you already have</div>
+            <div id="supplier-rows" style="display:flex; flex-direction:column; gap:.55rem;"></div>
+            <button type="button" class="secondary" id="add-supplier" style="margin-top:.6rem; font-size:.82rem; padding:.45rem 1rem;">Add another supplier</button>
+          </div>
+
+          <button type="submit" id="agent-go">Check them and recommend one</button>
         </form>
 
         <div id="agent-progress" hidden style="margin-top:1.1rem;">
@@ -202,18 +263,18 @@
             <div class="field-row"><span class="k">Agent spend (its own funds)</span><span class="v mono" id="agent-spend">0 XRP</span></div>
             <div class="field-row"><span class="k">Paid calls</span><span class="v mono" id="agent-calls">0</span></div>
           </div>
-          <div id="agent-log" style="margin-top:.8rem; display:flex; flex-direction:column; gap:.35rem; max-height:340px; overflow-y:auto;"></div>
-          <div id="agent-receipts" style="margin-top:.8rem;"></div>
+          <div id="agent-log" class="agent-log"></div>
+          <div id="agent-receipts" style="margin-top:1rem;"></div>
         </div>
 
         <div id="agent-recommendation" hidden style="margin-top:1.1rem;">
           <div class="order-card" style="display:block; border-left:2px solid var(--ink);">
             <p id="agent-rec-text" style="margin:0 0 .7rem;"></p>
-            <label style="display:block; margin-bottom:.7rem;">Your contact (email or WhatsApp)
-              <input id="agent-buyer-contact" type="text" placeholder="you@company.com" />
+            <label style="margin-bottom:.75rem;">Your contact (email or WhatsApp)
+              <input id="agent-buyer-contact" type="text" placeholder="you@company.com" style="width:100%" />
             </label>
-            <label style="display:block; margin-bottom:.9rem;">Supplier's contact
-              <input id="agent-supplier-contact" type="text" placeholder="sales@shenzhenprecision.cn" />
+            <label style="margin-bottom:1rem;">Supplier's contact
+              <input id="agent-supplier-contact" type="text" placeholder="sales@shenzhenprecision.cn" style="width:100%" />
             </label>
             <button type="button" id="agent-approve">Approve &amp; create order</button>
             <p class="error" id="agent-error" hidden></p>
@@ -221,7 +282,13 @@
         </div>
       </section>
 
-      <section class="panel reveal" id="order-form">
+      <div class="manual-toggle-row">
+        <button type="button" id="manual-toggle" class="manual-toggle">
+          Already decided who you're buying from? Enter the order manually
+        </button>
+      </div>
+
+      <section class="panel reveal" id="order-form" hidden>
         <h2>Start a new order</h2>
         <form id="deal-form" style="display:flex; flex-direction:column; gap:.9rem;">
           <label>Your contact (email or WhatsApp)
@@ -403,11 +470,10 @@
       </div>`).join('');
     agentLog.scrollTop = agentLog.scrollHeight;
 
-    const budget = run.events.filter(e => e.data && e.data.spentXrp !== undefined).pop();
-    if (budget){
-      document.getElementById('agent-spend').textContent = `${budget.data.spentXrp} XRP`;
-      document.getElementById('agent-calls').textContent = budget.data.callCount;
-      const receipts = budget.data.receipts || [];
+    document.getElementById('agent-spend').textContent = `${run.spendXrp ?? 0} XRP`;
+    document.getElementById('agent-calls').textContent = run.callCount ?? 0;
+    {
+      const receipts = run.receipts || [];
       document.getElementById('agent-receipts').innerHTML = receipts.length ? `
         <div class="order-card" style="display:block;">
           ${receipts.map(r => `<div class="field-row">
@@ -421,7 +487,7 @@
       lastRecommendation = run.recommendation;
       document.getElementById('agent-rec-text').innerHTML =
         `The agent recommends <strong>${run.recommendation.supplierName}</strong> at $${run.recommendation.unitPriceUSD}/unit — <strong>$${run.recommendation.totalUSD}</strong> for ${run.recommendation.quantity} units.<br>
-         <span class="note">It spent ${run.recommendation.spendXrp} XRP of its own funds getting here, across ${run.recommendation.receipts.length} paid checks.</span>`;
+         <span class="note">It spent ${run.spendXrp ?? run.recommendation.spendXrp} XRP of its own funds getting here, across ${run.callCount ?? 0} paid checks.</span>`;
       agentRec.hidden = false;
       clearInterval(agentPoll);
     }
@@ -431,6 +497,81 @@
     }
   }
 
+  // Suppliers the buyer already deals with. Prefilled with a worked example;
+  // every field is editable and rows can be added or removed.
+  const SEED_SUPPLIERS = [
+    { name: 'Dongguan Rapid Manufacturing', contact: 'wa +86 138 0000 111', price: 31 },
+    { name: 'Shenzhen Precision Tech',      contact: 'sales@szprecision.cn',  price: 35 },
+    { name: 'Global Components Ltd',        contact: 'wa +86 139 0000 222',   price: 38 },
+  ];
+  const rows = document.getElementById('supplier-rows');
+
+  function addSupplierRow(seed = { name:'', contact:'', price:'' }){
+    const row = document.createElement('div');
+    row.className = 'supplier-row';
+    row.innerHTML = `
+      <input class="s-name"    type="text"   placeholder="Company name"        value="${seed.name}" />
+      <input class="s-contact" type="text"   placeholder="How you reach them"  value="${seed.contact}" />
+      <input class="s-price"   type="number" placeholder="$/unit" min="0" step="0.01" value="${seed.price}" />
+      <button type="button" class="s-remove secondary" aria-label="Remove">×</button>`;
+    row.querySelector('.s-remove').addEventListener('click', () => {
+      if (rows.children.length > 1) row.remove();
+    });
+    rows.appendChild(row);
+  }
+
+  SEED_SUPPLIERS.forEach(addSupplierRow);
+  document.getElementById('add-supplier').addEventListener('click', () => addSupplierRow());
+
+  function readSuppliers(){
+    return [...rows.querySelectorAll('.supplier-row')].map(r => ({
+      name: r.querySelector('.s-name').value.trim(),
+      contact: r.querySelector('.s-contact').value.trim(),
+      unitPriceUSD: Number(r.querySelector('.s-price').value) || 0,
+    })).filter(s => s.name && s.unitPriceUSD > 0);
+  }
+
+  // Read the buyer's own messages, then show what was understood so they can
+  // correct it. The agent never acts on an unreviewed read.
+  document.getElementById('read-context').addEventListener('click', async () => {
+    const btn = document.getElementById('read-context');
+    const out = document.getElementById('context-summary');
+    const text = document.getElementById('context-text').value.trim();
+    if (!text){ out.textContent = 'Paste something first.'; return; }
+
+    btn.disabled = true;
+    out.className = 'note';
+    out.textContent = 'Reading…';
+
+    try {
+      const res = await fetch('/api/agent/read-context', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ text }),
+      });
+      const brief = await res.json();
+      if (!res.ok) throw new Error(brief.error || 'could not read that');
+
+      if (brief.productName) agentForm.productName.value = brief.productName;
+      if (brief.quantity) agentForm.quantity.value = brief.quantity;
+      if (brief.maxBudgetUSD) agentForm.maxBudgetUSD.value = brief.maxBudgetUSD;
+
+      if (brief.suppliers.length){
+        rows.innerHTML = '';
+        brief.suppliers.forEach(sup => addSupplierRow({
+          name: sup.name, contact: sup.contact || '', price: sup.unitPriceUSD,
+        }));
+      }
+
+      out.className = brief.method === 'fallback' ? 'note is-fallback' : 'note';
+      out.textContent = brief.summary;
+    } catch (err) {
+      out.className = 'note is-fallback';
+      out.textContent = err.message;
+    } finally {
+      btn.disabled = false;
+    }
+  });
+
   agentForm.addEventListener('submit', async (e) => {
     e.preventDefault();
     agentRec.hidden = true;
@@ -439,10 +580,23 @@
     document.getElementById('agent-go').disabled = true;
 
     const data = Object.fromEntries(new FormData(agentForm).entries());
+    const suppliers = readSuppliers();
+    if (!suppliers.length){
+      agentLog.innerHTML = '<p class="error">Add at least one supplier with a quoted price.</p>';
+      document.getElementById('agent-go').disabled = false;
+      return;
+    }
     const res = await fetch('/api/agent/source', {
-      method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(data),
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ ...data, suppliers }),
     });
-    const { runId } = await res.json();
+    const body = await res.json();
+    if (!res.ok){
+      agentLog.innerHTML = `<p class="error">${escapeHtml(body.error || 'Could not start.')}</p>`;
+      document.getElementById('agent-go').disabled = false;
+      return;
+    }
+    const runId = body.runId;
 
     clearInterval(agentPoll);
     agentPoll = setInterval(async () => {
@@ -484,6 +638,20 @@
     await loadDeals(currentBuyerContact);
     document.getElementById('invite-panel').scrollIntoView({ behavior: 'smooth' });
   });
+
+  // Manual entry stays available, just not competing for attention.
+  const manualToggle = document.getElementById('manual-toggle');
+  const manualPanel = document.getElementById('order-form');
+
+  function showManual(){
+    manualPanel.hidden = false;
+    manualPanel.classList.add('in-view');
+    manualToggle.parentElement.hidden = true;
+    manualPanel.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  }
+
+  manualToggle.addEventListener('click', showManual);
+  if (location.hash === '#order-form') showManual();
 
   document.getElementById('copy-btn').addEventListener('click', () => {
     navigator.clipboard?.writeText(inviteUrl.textContent);

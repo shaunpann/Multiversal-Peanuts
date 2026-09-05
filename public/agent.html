@@ -1,0 +1,217 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Tideline — Agent</title>
+<link rel="stylesheet" href="/shared.css" />
+<style>
+  body{ display:block; padding:0 0 5rem; }
+  .topnav{
+    position:sticky; top:0; z-index:20;
+    background:color-mix(in srgb, var(--bg) 82%, transparent);
+    backdrop-filter:saturate(140%) blur(12px);
+    -webkit-backdrop-filter:saturate(140%) blur(12px);
+    border-bottom:1px solid var(--border);
+  }
+  .topnav .row{ display:flex; align-items:center; justify-content:space-between; padding:.85rem 1.5rem; max-width:1120px; margin:0 auto; }
+  .topnav .links{ display:flex; align-items:center; gap:1.6rem; }
+  .topnav .links a{ font-size:.85rem; font-weight:450; color:var(--ink-muted); text-decoration:none; }
+  .topnav .links a:hover, .topnav .links a.active{ color:var(--ink); }
+
+  .shell{ max-width:1120px; margin:0 auto; padding:2.5rem 1.5rem; }
+  .page-head{ margin-bottom:2rem; }
+  .page-head h1{ font-size:1.9rem; letter-spacing:-.028em; }
+  .page-head p{ color:var(--ink-muted); margin:.5rem 0 0; max-width:62ch; }
+
+  .grid{ display:grid; gap:1rem; }
+  .grid.stats{ grid-template-columns:repeat(4, 1fr); margin-bottom:1rem; }
+  .grid.two{ grid-template-columns:1fr 1fr; }
+  @media (max-width:900px){ .grid.stats{ grid-template-columns:repeat(2,1fr); } .grid.two{ grid-template-columns:1fr; } }
+
+  .stat{ background:var(--surface-2); border:1px solid var(--border); border-radius:var(--radius); padding:1.1rem 1.25rem; }
+  .stat .k{ font-size:.78rem; color:var(--ink-muted); }
+  .stat .v{ font-size:1.6rem; font-weight:600; letter-spacing:-.025em; margin-top:.2rem; font-variant-numeric:tabular-nums; }
+  .stat .sub{ font-size:.75rem; color:var(--ink-muted); margin-top:.15rem; }
+
+  .card{ background:var(--surface); border:1px solid var(--border); border-radius:var(--radius); padding:1.5rem; }
+  .card h2{ font-size:.78rem; text-transform:uppercase; letter-spacing:.07em; color:var(--ink-muted);
+            font-weight:600; margin:0 0 1rem; }
+  .card + .card, .grid + .card, .card + .grid{ margin-top:1rem; }
+
+  table{ width:100%; border-collapse:collapse; font-size:.88rem; }
+  th{ text-align:left; font-weight:450; color:var(--ink-muted); font-size:.75rem;
+      text-transform:uppercase; letter-spacing:.05em; padding:0 .6rem .6rem 0; }
+  td{ padding:.6rem .6rem .6rem 0; border-top:1px solid var(--border); vertical-align:top; }
+  td.num, th.num{ text-align:right; font-variant-numeric:tabular-nums; padding-right:0; }
+  .sub{ color:var(--ink-muted); font-size:.78rem; }
+  .bar{ height:5px; background:var(--surface-3); border-radius:3px; overflow:hidden; margin-top:.6rem; }
+  .bar i{ display:block; height:100%; background:var(--ink); }
+  .dot{ display:inline-block; width:.45rem; height:.45rem; border-radius:50%; margin-right:.4rem; }
+  .empty{ color:var(--ink-muted); font-size:.85rem; }
+  .addr{ display:flex; justify-content:space-between; align-items:baseline; gap:1rem; }
+</style>
+</head>
+<body>
+  <nav class="topnav">
+    <div class="row">
+      <div class="brand"><span class="mark">📦</span><span class="name">Tideline</span></div>
+      <div class="links">
+        <a href="/">Buyer</a>
+        <a href="/agent.html" class="active">Agent</a>
+      </div>
+    </div>
+  </nav>
+
+  <div class="shell">
+    <div class="page-head">
+      <h1>Agent</h1>
+      <p>What the agent is allowed to spend, what it has spent, and what those
+         decisions bought. Every payment below was authorised by the agent alone.</p>
+    </div>
+
+    <div class="grid stats" id="stats"></div>
+
+    <div class="grid two">
+      <div class="card">
+        <h2>Accounts</h2>
+        <div id="wallets"><p class="empty">loading…</p></div>
+      </div>
+      <div class="card">
+        <h2>Spending policy</h2>
+        <div id="policy"><p class="empty">loading…</p></div>
+      </div>
+    </div>
+
+    <div class="card">
+      <h2>Autonomous payments</h2>
+      <div id="receipts"><p class="empty">loading…</p></div>
+    </div>
+
+    <div class="grid two">
+      <div class="card">
+        <h2>Sourcing runs</h2>
+        <div id="runs"><p class="empty">loading…</p></div>
+      </div>
+      <div class="card">
+        <h2>Service catalogue</h2>
+        <div id="services"><p class="empty">loading…</p></div>
+      </div>
+    </div>
+
+    <div class="card">
+      <h2>Deals settled on XRPL</h2>
+      <div id="deals"><p class="empty">loading…</p></div>
+    </div>
+  </div>
+
+<script>
+const $ = (id) => document.getElementById(id);
+const tx = (h) => `https://testnet.xrpl.org/transactions/${h}`;
+const esc = (s) => String(s ?? '').replace(/[&<>]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;'}[c]));
+const STATUS_DOT = {
+  running:'var(--warn)', awaiting_approval:'var(--warn)', failed:'var(--danger)', done:'var(--success)',
+  AWAITING_SUPPLIER:'var(--ink-muted)', LOCKED:'var(--warn)', UNDER_REVIEW:'var(--warn)',
+  NEEDS_MANUAL_REVIEW:'var(--warn)', RELEASED:'var(--success)', REFUND_PENDING:'var(--danger)', REFUNDED:'var(--danger)',
+};
+
+let loadedOnce = false;
+
+async function load(){
+  let s;
+  try {
+    s = await (await fetch('/api/agent/overview')).json();
+  } catch (err) {
+    if (!loadedOnce) showError('Could not reach the server. Is it running?');
+    return;
+  }
+  if (s.error) { if (!loadedOnce) showError(s.error); return; }
+  loadedOnce = true;
+
+  const a = s.wallets.agent, m = s.wallets.merchant;
+  const used = s.policy.perDealMaxXrp ? Math.min(100, (s.totals.spendXrp / s.policy.perDealMaxXrp) * 100) : 0;
+
+  $('stats').innerHTML = `
+    <div class="stat"><div class="k">Agent balance</div>
+      <div class="v">${a.balanceXrp ?? '—'}</div><div class="sub">XRP · its entire authority</div></div>
+    <div class="stat"><div class="k">Spent autonomously</div>
+      <div class="v">${s.totals.spendXrp}</div><div class="sub">XRP across ${s.totals.calls} paid calls</div></div>
+    <div class="stat"><div class="k">Sourcing runs</div>
+      <div class="v">${s.totals.runs}</div><div class="sub">${s.deals.length} became deals</div></div>
+    <div class="stat"><div class="k">Service revenue</div>
+      <div class="v">${m.balanceXrp ?? '—'}</div><div class="sub">XRP held by the merchant</div></div>`;
+
+  $('wallets').innerHTML = [
+    ['Agent', a, 'signs service payments with no human in the loop'],
+    ['Merchant', m, 'receives payment for the paid services'],
+  ].map(([label, w, note]) => `
+    <div style="margin-bottom:1rem;">
+      <div class="addr"><b>${label}</b><span>${w.balanceXrp ?? '—'} XRP</span></div>
+      <div class="sub">${note}</div>
+      <a class="txlink mono" href="${w.url}" target="_blank" rel="noopener">${w.address}</a>
+    </div>`).join('');
+
+  $('policy').innerHTML = `
+    <div class="field-row"><span class="k">Budget used this session</span>
+      <span class="v">${s.totals.spendXrp} / ${s.policy.perDealMaxXrp} XRP</span></div>
+    <div class="bar"><i style="width:${used}%"></i></div>
+    <div class="field-row" style="margin-top:.8rem;"><span class="k">Per-call ceiling</span><span class="v">${s.policy.perCallMaxXrp} XRP</span></div>
+    <div class="field-row"><span class="k">Pays unattended up to</span><span class="v">${s.policy.autoApproveMaxXrp} XRP</span></div>
+    <div class="field-row"><span class="k">Call limit per deal</span><span class="v">${s.policy.maxCallsPerDeal}</span></div>
+    <div class="field-row"><span class="k">Allowed services</span><span class="v">${s.policy.allowedServices.length}</span></div>
+    <p class="sub" style="margin:.8rem 0 0;">Enforced in the payment path, below the model — a prompt cannot talk past it.</p>`;
+
+  $('receipts').innerHTML = s.receipts.length ? `
+    <table><thead><tr>
+      <th>Service</th><th>Bought because</th><th>When</th><th class="num">Price</th><th class="num">Receipt</th>
+    </tr></thead><tbody>
+    ${s.receipts.map(r => `<tr>
+      <td><b>${esc(r.service)}</b></td>
+      <td class="sub">${esc(r.impact)}</td>
+      <td class="sub mono">${esc(String(r.timestamp).slice(11,19))}</td>
+      <td class="num">${r.priceXrp} XRP</td>
+      <td class="num"><a class="txlink mono" href="${tx(r.txHash)}" target="_blank" rel="noopener">${String(r.txHash).slice(0,10)}…</a></td>
+    </tr>`).join('')}
+    </tbody></table>` : '<p class="empty">No autonomous payments yet. Start a sourcing run from the buyer page.</p>';
+
+  $('runs').innerHTML = s.runs.length ? s.runs.map(r => `
+    <div style="padding:.7rem 0; border-top:1px solid var(--border);">
+      <div class="addr">
+        <span><span class="dot" style="background:${STATUS_DOT[r.status] || 'var(--ink-muted)'}"></span>
+          <b>${r.recommendation ? esc(r.recommendation.supplierName) : esc(r.status)}</b></span>
+        <span class="mono">${r.spendXrp} XRP</span>
+      </div>
+      <div class="sub">${r.recommendation ? '$' + r.recommendation.totalUSD + ' · ' : ''}${r.callCount} paid calls · ${esc(String(r.startedAt).slice(11,19))}${r.error ? ' · ' + esc(r.error) : ''}</div>
+    </div>`).join('') : '<p class="empty">No runs yet.</p>';
+
+  $('services').innerHTML = `<table><tbody>
+    ${s.services.map(x => `<tr>
+      <td><b>${esc(x.id)}</b><div class="sub">${esc(x.description)}</div></td>
+      <td class="num">${x.priceXrp} XRP</td></tr>`).join('')}
+  </tbody></table>`;
+
+  $('deals').innerHTML = s.deals.length ? `
+    <table><thead><tr>
+      <th>Order</th><th>Status</th><th class="num">Value</th><th class="num">Locked</th><th class="num">Released</th>
+    </tr></thead><tbody>
+    ${s.deals.map(d => `<tr>
+      <td>${esc(d.productName)}<div class="sub mono">${esc(d.id)}</div></td>
+      <td><span class="dot" style="background:${STATUS_DOT[d.status] || 'var(--ink-muted)'}"></span>${esc(d.status)}</td>
+      <td class="num">$${d.amountUSD}</td>
+      <td class="num">${d.escrowCreateTxHash ? `<a class="txlink mono" href="${tx(d.escrowCreateTxHash)}" target="_blank" rel="noopener">${d.escrowCreateTxHash.slice(0,10)}…</a>` : '—'}</td>
+      <td class="num">${d.escrowFinishTxHash ? `<a class="txlink mono" href="${tx(d.escrowFinishTxHash)}" target="_blank" rel="noopener">${d.escrowFinishTxHash.slice(0,10)}…</a>` : (d.escrowCancelTxHash ? `<a class="txlink mono" href="${tx(d.escrowCancelTxHash)}" target="_blank" rel="noopener">refunded</a>` : '—')}</td>
+    </tr>`).join('')}
+    </tbody></table>` : '<p class="empty">No deals yet.</p>';
+}
+
+function showError(msg){
+  for (const id of ['wallets','policy','receipts','runs','services','deals']){
+    $(id).innerHTML = `<p class="error">${esc(msg)}</p>`;
+  }
+}
+
+load();
+setInterval(load, 5000);
+</script>
+</body>
+</html>

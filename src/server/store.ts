@@ -15,6 +15,7 @@ import * as crypto from "crypto";
 const DATA_DIR = path.join(__dirname, "..", "..", "data");
 const DEALS_FILE = path.join(DATA_DIR, "deals.json");
 const WALLETS_FILE = path.join(DATA_DIR, "wallets.json");
+const RECEIPTS_FILE = path.join(DATA_DIR, "receipts.json");
 
 export type DealStatus =
   | "AWAITING_SUPPLIER" // buyer created it, waiting on supplier's XRPL address
@@ -154,4 +155,30 @@ export function saveWallet(record: WalletRecord) {
   if (idx === -1) wallets.push(record);
   else wallets[idx] = record;
   writeJson(WALLETS_FILE, wallets);
+}
+
+/**
+ * Every autonomous payment the agent has ever made, kept across restarts.
+ * The agent dashboard claims to show all of them, so they cannot live only
+ * in the memory of the process that happened to make them.
+ */
+export interface ReceiptRecord {
+  runId: string;
+  service: string;
+  priceXrp: number;
+  txHash: string;
+  impact: string;
+  timestamp: string;
+}
+
+export function listReceipts(): ReceiptRecord[] {
+  return readJson<ReceiptRecord[]>(RECEIPTS_FILE, []);
+}
+
+/** Idempotent on txHash, so a repeated run update never double-counts. */
+export function saveReceipts(records: ReceiptRecord[]): void {
+  const existing = listReceipts();
+  const seen = new Set(existing.map((r) => r.txHash));
+  const added = records.filter((r) => r.txHash && !seen.has(r.txHash));
+  if (added.length) writeJson(RECEIPTS_FILE, [...existing, ...added]);
 }

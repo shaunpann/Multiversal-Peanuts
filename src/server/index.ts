@@ -16,12 +16,16 @@ import * as fs from "fs";
 
 import { getClient, createEscrow, finishEscrow, cancelEscrow, generateEscrowCondition, unixToRippleTime } from "../tools/xrplTools";
 import { getOrCreateBuyerWallet, getOrCreateVerifierWallet } from "./walletManager";
-import { createDeal, DealRecord, getDeal, getDealByToken, listDeals, toPublicDeal, updateDeal } from "./store";
+import { createDeal, DealRecord, getDeal, getDealByToken, listDeals, listReceipts, ReceiptRecord, saveReceipts, toPublicDeal, updateDeal } from "./store";
 import { reviewEvidence } from "./evidenceReviewer";
 import { SERVICES } from "../x402/services";
 import { requirePayment, getMerchantAddress } from "../x402/middleware";
+import { getOrCreateAgentWallet } from "../x402/wallets";
+import { DEFAULT_POLICY } from "../shared/policy";
+import { dropsToXrp } from "xrpl";
 import { TradeOrchestrator } from "../agents/orchestrator";
-import { AgentLogEvent, BuyerIntent } from "../shared/types";
+import { readContext } from "../agents/contextReader";
+import { AgentLogEvent, BuyerIntent, SupplierQuote } from "../shared/types";
 import { Client, Wallet, isValidAddress } from "xrpl";
 
 const PORT = Number(process.env.PORT || 3001);
@@ -76,6 +80,11 @@ interface AgentRun {
   id: string;
   status: "running" | "awaiting_approval" | "done" | "failed";
   events: AgentLogEvent[];
+  startedAt: string;
+  /** Live spend totals, so the UI never has to scrape them out of the log. */
+  spendXrp: number;
+  callCount: number;
+  receipts: unknown[];
   recommendation?: {
     supplierId: string;
     supplierName: string;
@@ -90,11 +99,47 @@ interface AgentRun {
 
 const agentRuns = new Map<string, AgentRun>();
 
+/**
+ * Read the buyer's own messages and turn them into a brief. Nothing is spent
+ * here and nothing is committed — the buyer sees what was understood and can
+ * correct it before the agent acts on it.
+ */
+app.post("/api/agent/read-context", async (req, res) => {
+  const { text } = req.body ?? {};
+  if (!String(text || "").trim()) return res.status(400).json({ error: "paste some messages first" });
+  try {
+    res.json(await readContext(String(text)));
+  } catch (err: any) {
+    console.error(err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
 app.post("/api/agent/source", (req, res) => {
-  const { productName, quantity, maxBudgetUSD, autoApproveLimitUSD, deadlineDays } = req.body ?? {};
+  const { productName, quantity, maxBudgetUSD, autoApproveLimitUSD, deadlineDays, suppliers } = req.body ?? {};
   if (!productName) return res.status(400).json({ error: "productName is required" });
 
   const qty = Number(quantity) || 100;
+
+  // The buyer brings the suppliers. Discovery happened wherever they already
+  // talk — WhatsApp, email, a trade show. This platform is not a marketplace.
+  const shortlist: SupplierQuote[] = (Array.isArray(suppliers) ? suppliers : [])
+    .filter((s: { name?: string; unitPriceUSD?: unknown }) => s && String(s.name || "").trim())
+    .map((s: { name: string; contact?: string; unitPriceUSD?: unknown; leadTimeDays?: unknown }) => {
+      const unitPriceUSD = Number(s.unitPriceUSD) || 0;
+      return {
+        supplierId: s.contact?.trim() || s.name.trim(),
+        supplierName: s.name.trim(),
+        unitPriceUSD,
+        quantity: qty,
+        totalPriceUSD: unitPriceUSD * qty,
+        leadTimeDays: Number(s.leadTimeDays) || 14,
+      };
+    });
+
+  if (!shortlist.length) {
+    return res.status(400).json({ error: "add at least one supplier you already deal with" });
+  }
   const intent: BuyerIntent = {
     productName,
     quantity: qty,
@@ -104,11 +149,26 @@ app.post("/api/agent/source", (req, res) => {
     autoApproveLimitUSD: Number(autoApproveLimitUSD) || 500,
   };
 
-  const run: AgentRun = { id: `RUN-${Date.now()}`, status: "running", events: [] };
+  const run: AgentRun = {
+    id: `RUN-${Date.now()}`, status: "running", events: [],
+    startedAt: new Date().toISOString(),
+    spendXrp: 0, callCount: 0, receipts: [],
+  };
   agentRuns.set(run.id, run);
 
   new TradeOrchestrator()
-    .recommendDeal(intent, (e) => run.events.push(e))
+    .recommendDeal(intent, shortlist, (e) => {
+      run.events.push(e);
+      const d = e.data as { spentXrp?: number; callCount?: number; receipts?: unknown[] } | undefined;
+      if (d && Array.isArray(d.receipts)) {
+        run.spendXrp = d.spentXrp ?? run.spendXrp;
+        run.callCount = d.callCount ?? run.callCount;
+        run.receipts = d.receipts;
+        saveReceipts(
+          (d.receipts as Array<Omit<ReceiptRecord, "runId">>).map((r) => ({ ...r, runId: run.id })),
+        );
+      }
+    })
     .then((result) => {
       if (!result) {
         run.status = "failed";
@@ -139,6 +199,85 @@ app.get("/api/agent/runs/:id", (req, res) => {
   const run = agentRuns.get(req.params.id);
   if (!run) return res.status(404).json({ error: "not found" });
   res.json(run);
+});
+
+// ---------------- Agent dashboard ----------------
+//
+// Everything the agent is and has done: the account its authority is
+// denominated in, the limits it operates under, every autonomous payment it
+// has ever made, and the deals those decisions produced.
+
+async function balanceXrp(client: Client, address: string): Promise<number | null> {
+  try {
+    const res = await client.request({
+      command: "account_info", account: address, ledger_index: "validated",
+    });
+    return Number(dropsToXrp(res.result.account_data.Balance));
+  } catch {
+    return null;
+  }
+}
+
+app.get("/api/agent/overview", async (_req, res) => {
+  try {
+    // One connection for the whole overview — three serial connects made this
+    // endpoint slow enough that the dashboard sat on "loading".
+    const client = await getClient();
+    let agentAddress: string, merchantAddress: string;
+    let agentBalance: number | null, merchantBalance: number | null;
+    try {
+      agentAddress = (await getOrCreateAgentWallet(client)).address;
+      merchantAddress = await getMerchantAddress();
+      [agentBalance, merchantBalance] = await Promise.all([
+        balanceXrp(client, agentAddress),
+        balanceXrp(client, merchantAddress),
+      ]);
+    } finally {
+      await client.disconnect();
+    }
+
+    const runs = [...agentRuns.values()].sort((a, b) => (a.startedAt < b.startedAt ? 1 : -1));
+    // Durable ledger, so a restart does not erase the agent's payment history.
+    const receipts = listReceipts().sort((a, b) => (a.timestamp < b.timestamp ? 1 : -1));
+
+    res.json({
+      wallets: {
+        agent: {
+          address: agentAddress,
+          balanceXrp: agentBalance,
+          url: `https://testnet.xrpl.org/accounts/${agentAddress}`,
+        },
+        merchant: {
+          address: merchantAddress,
+          balanceXrp: merchantBalance,
+          url: `https://testnet.xrpl.org/accounts/${merchantAddress}`,
+        },
+      },
+      policy: DEFAULT_POLICY,
+      services: SERVICES.map((s) => ({ id: s.id, priceXrp: s.priceXrp, description: s.description })),
+      runs: runs.map((r) => ({
+        id: r.id,
+        status: r.status,
+        startedAt: r.startedAt,
+        spendXrp: r.spendXrp,
+        callCount: r.callCount,
+        recommendation: r.recommendation,
+        error: r.error,
+      })),
+      totals: {
+        runs: runs.length,
+        spendXrp: Number(receipts.reduce((t, r) => t + Number(r.priceXrp || 0), 0).toFixed(6)),
+        calls: receipts.length,
+      },
+      receipts,
+      deals: listDeals()
+        .sort((a, b) => (a.createdAt < b.createdAt ? 1 : -1))
+        .map(toPublicDeal),
+    });
+  } catch (err: any) {
+    console.error(err);
+    res.status(500).json({ error: err.message });
+  }
 });
 
 // ---------------- Buyer: create + list deals ----------------

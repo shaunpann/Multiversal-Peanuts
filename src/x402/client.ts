@@ -12,8 +12,9 @@ import { getOrCreateAgentWallet } from "./wallets";
 
 const BASE_URL = () => `http://127.0.0.1:${process.env.PORT || 3000}`;
 
-/** Payment proofs keyed by call, so a failed retry never pays twice. */
-const paidCalls = new Map<string, string>();
+/* Payment proofs live on the context, not the module. They exist so a failed
+   retry inside one call never pays twice — NOT so a later deal gets the same
+   data for free. Scoping them per run keeps each deal's spend real. */
 
 interface Quote {
   service: string;
@@ -33,6 +34,8 @@ export interface PaidCallContext {
   client: Client;
   policy: PolicyEngine;
   emit: (e: AgentLogEvent) => void;
+  /** Per-run proof cache. Create one per deal; never share across deals. */
+  paid: Map<string, string>;
   /** Called when a payment needs a human because it exceeds the auto-approval cap. */
   requestApproval?: (quote: Quote) => Promise<boolean>;
 }
@@ -45,7 +48,7 @@ export async function callPaidService<T>(
 ): Promise<PaidCallResult<T>> {
   const url = `${BASE_URL()}${path}`;
   const callKey = `${serviceId}:${path}`;
-  const existingProof = paidCalls.get(callKey);
+  const existingProof = ctx.paid.get(callKey);
 
   let response = await fetch(url, existingProof ? { headers: { "X-PAYMENT": existingProof } } : undefined);
 
@@ -54,9 +57,23 @@ export async function callPaidService<T>(
     return { ok: true, data: (await response.json()) as T };
   }
 
-  const body = (await response.json()) as { accepts?: Quote[] };
+  let body = (await response.json()) as { accepts?: Quote[]; error?: string };
+
+  // A cached proof whose challenge has since expired comes back as a 402
+  // carrying an error instead of terms. Drop the stale proof and ask again,
+  // otherwise this service is unbuyable for the rest of the process.
+  if (!body.accepts && existingProof) {
+    ctx.paid.delete(callKey);
+    response = await fetch(url);
+    if (response.status !== 402) {
+      if (!response.ok) return { ok: false, reason: `service returned ${response.status}` };
+      return { ok: true, data: (await response.json()) as T };
+    }
+    body = (await response.json()) as { accepts?: Quote[]; error?: string };
+  }
+
   const quote = body.accepts?.[0];
-  if (!quote) return { ok: false, reason: "merchant returned no payment terms" };
+  if (!quote) return { ok: false, reason: body.error || "merchant returned no payment terms" };
 
   const verdict = ctx.policy.check(serviceId, quote.amount);
   if (verdict.decision === "deny") {
@@ -82,7 +99,7 @@ export async function callPaidService<T>(
   }
 
   const txHash = await payQuote(ctx, quote);
-  paidCalls.set(callKey, txHash);
+  ctx.paid.set(callKey, txHash);
 
   response = await fetch(url, { headers: { "X-PAYMENT": txHash } });
   if (!response.ok) return { ok: false, reason: `merchant rejected the proof (${response.status})` };

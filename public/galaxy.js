@@ -35,7 +35,7 @@
   const ARM_TIGHTNESS = 0.28;
   const ARM_SWEEP = 7.0;        // ≈401°, so arms wrap past a full turn
   const ARM_SPREAD = 0.16;
-  const COUNT = 1100;
+  const COUNT = 1500;
 
   /* ---------- feel ---------- */
   const SPRING = 0.014;         // pull back toward the base position
@@ -73,8 +73,9 @@
       const grad = g.createRadialGradient(size / 2, size / 2, 0, size / 2, size / 2, size / 2);
       const [r, gr, b] = rgb;
       grad.addColorStop(0.0, `rgba(${r},${gr},${b},1)`);
-      grad.addColorStop(0.18, `rgba(${r},${gr},${b},0.55)`);
-      grad.addColorStop(0.45, `rgba(${r},${gr},${b},0.12)`);
+      grad.addColorStop(0.10, `rgba(${r},${gr},${b},0.85)`);
+      grad.addColorStop(0.28, `rgba(${r},${gr},${b},0.28)`);
+      grad.addColorStop(0.55, `rgba(${r},${gr},${b},0.07)`);
       grad.addColorStop(1.0, `rgba(${r},${gr},${b},0)`);
       g.fillStyle = grad;
       g.fillRect(0, 0, size, size);
@@ -111,13 +112,31 @@
         size: bright > 0.965 ? 3.6 + Math.random() * 2.2
             : bright > 0.80 ? 1.7 + Math.random() * 1.1
             : 0.55 + Math.random() * 0.75,
-        alpha: 0.35 + Math.random() * 0.65,
+        alpha: 0.55 + Math.random() * 0.45,
         colour: pickColour(),
         depth: 0.35 + Math.random() * 0.65,
         twinkle: Math.random() * Math.PI * 2,
         twinkleRate: 0.4 + Math.random() * 1.1,
         // Heavier stars shrug off the cursor; dust gets thrown around.
         mass: 0.55 + (bright > 0.80 ? 0.9 : 0) + Math.random() * 0.4,
+        ox: 0, oy: 0, vx: 0, vy: 0,
+      });
+    }
+
+    // Central bulge: dense, roughly spherical, no arm structure. Fills the
+    // gap between the core glow and where the arms begin.
+    for (let i = 0; i < 340; i++) {
+      const bright = Math.random();
+      particles.push({
+        angle: Math.random() * Math.PI * 2,
+        radius: Math.pow(Math.random(), 1.7) * 0.26,
+        size: bright > 0.94 ? 2.0 + Math.random() * 1.4 : 0.5 + Math.random() * 0.8,
+        alpha: 0.5 + Math.random() * 0.5,
+        colour: pickColour(),
+        depth: 0.2 + Math.random() * 0.4,
+        twinkle: Math.random() * Math.PI * 2,
+        twinkleRate: 0.4 + Math.random() * 1.0,
+        mass: 1.4 + Math.random() * 0.8,   // the bulge barely reacts to the cursor
         ox: 0, oy: 0, vx: 0, vy: 0,
       });
     }
@@ -146,17 +165,21 @@
     canvas.width = Math.round(width * dpr);
     canvas.height = Math.round(height * dpr);
     ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
-    cx = width / 2;
-    cy = height / 2;
-    scale = Math.min(width, height) * 0.42;
+    // Off-centre on wide screens so the core can blaze without fighting the
+    // headline; centred when the copy stacks below it on narrow ones.
+    const wide = width >= 900;
+    cx = width * (wide ? 0.66 : 0.5);
+    cy = height * (wide ? 0.5 : 0.42);
+    scale = Math.min(width, height) * (wide ? 0.56 : 0.46);
   }
 
   function drawCore(px, py) {
-    const coreR = scale * 0.34 * zoom;
+    const coreR = scale * 0.26 * zoom;
     const grad = ctx.createRadialGradient(px, py, 0, px, py, coreR);
-    grad.addColorStop(0.00, 'rgba(255,252,245,0.95)');
-    grad.addColorStop(0.12, 'rgba(255,240,220,0.42)');
-    grad.addColorStop(0.34, 'rgba(210,220,255,0.14)');
+    grad.addColorStop(0.00, 'rgba(255,253,248,1)');
+    grad.addColorStop(0.08, 'rgba(255,244,228,0.72)');
+    grad.addColorStop(0.22, 'rgba(226,232,255,0.24)');
+    grad.addColorStop(0.55, 'rgba(170,190,255,0.06)');
     grad.addColorStop(1.00, 'rgba(160,180,255,0)');
     ctx.fillStyle = grad;
     ctx.beginPath();
@@ -259,7 +282,7 @@
       const energy = Math.min((p.ox * p.ox + p.oy * p.oy) / 900, 1);
       const flicker = reduceMotion ? 1 : 0.78 + 0.22 * Math.sin(t * p.twinkleRate + p.twinkle);
       const alpha = Math.min(p.alpha * flicker * (1 + energy * 1.6), 1);
-      const d = p.size * 7.5 * (1 + energy * 0.5);
+      const d = p.size * 9.5 * (1 + energy * 0.5);
 
       ctx.globalAlpha = alpha;
       ctx.drawImage(sprites[p.colour], px - d / 2, py - d / 2, d, d);

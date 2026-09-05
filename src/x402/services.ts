@@ -7,7 +7,7 @@
 // does not change.
 
 import { Request } from "express";
-import { SUPPLIER_RECORDS, MOCK_SUPPLIERS } from "../tools/mockData";
+import { registryLookup } from "../tools/mockData";
 
 export interface PaidService {
   id: string;
@@ -20,23 +20,33 @@ export interface PaidService {
 export const SERVICES: PaidService[] = [
   {
     id: "verify-business",
-    path: "/api/paid/verify-business/:supplierId",
+    // Keyed by company name, because the buyer brings the supplier — there is
+    // no catalogue of ids to look them up in.
+    path: "/api/paid/verify-business/:supplierName",
     priceXrp: 0.25,
     description: "Company registry, dispute history and trading record for one supplier",
     handler: (req) => {
-      const supplier = MOCK_SUPPLIERS.find((s) => s.supplierId === req.params.supplierId);
-      const record = SUPPLIER_RECORDS[req.params.supplierId];
-      if (!supplier || !record) return { error: "unknown supplier" };
+      const supplierName = decodeURIComponent(req.params.supplierName || "").trim();
+      if (!supplierName) return { error: "supplier name is required" };
+      const record = registryLookup(supplierName);
 
-      const passed = record.registration === "active" && record.openDisputes === 0;
+      // Fail on any of: lapsed registration, an open dispute, a sanctions
+      // hit, or a company too thinly capitalised to stand behind the order.
+      const flags: string[] = [];
+      if (record.registration === "lapsed") flags.push(`registration lapsed (last filing ${record.lastFiling})`);
+      if (record.openDisputes > 0) flags.push(record.disputeDetail ?? `${record.openDisputes} open dispute(s)`);
+      if (record.onSanctionsList) flags.push("appears on a sanctions list");
+      if (record.paidUpCapitalUSD < 10_000) flags.push(`paid-up capital only US$${record.paidUpCapitalUSD.toLocaleString()}`);
+
+      const passed = flags.length === 0;
       return {
-        supplierId: supplier.supplierId,
-        supplierName: supplier.supplierName,
+        supplierName,
         ...record,
         verdict: passed ? "pass" : "fail",
         reason: passed
-          ? `Registration active, no open disputes, ${record.yearsTrading} years trading.`
-          : `Registration ${record.registration}, ${record.openDisputes} open dispute(s).`,
+          ? `Registration active since ${record.incorporated}, no open disputes, ` +
+            `${record.yearsTrading} years trading, ${record.tradeReferences} trade references, credit band ${record.creditBand}.`
+          : flags.join("; ") + ".",
       };
     },
   },
@@ -46,11 +56,15 @@ export const SERVICES: PaidService[] = [
     priceXrp: 0.1,
     description: "Cross-border freight rates and transit times",
     handler: () => ({
+      lane: "Shenzhen / Dongguan → Singapore",
+      incoterm: "FOB origin, buyer books freight",
       options: [
-        { carrier: "Wira Logistics", transitDays: 3, costUSD: 410 },
-        { carrier: "DHL Express", transitDays: 2, costUSD: 620 },
+        { carrier: "Wira Logistics", mode: "LCL sea", transitDays: 9, costUSD: 410, insurance: "included to US$5,000" },
+        { carrier: "Straits Freight", mode: "LCL sea", transitDays: 7, costUSD: 545, insurance: "included to US$10,000" },
+        { carrier: "DHL Express", mode: "air", transitDays: 2, costUSD: 1_180, insurance: "included to US$25,000" },
       ],
-      recommended: "Wira Logistics",
+      recommended: "Straits Freight",
+      recommendationReason: "7 days keeps the 21-day deadline with margin at 46% of the air rate.",
     }),
   },
   {
@@ -59,9 +73,16 @@ export const SERVICES: PaidService[] = [
     priceXrp: 0.1,
     description: "HS classification and duty exposure for the shipment",
     handler: () => ({
-      hsCode: "8536.90",
+      hsCode: "8538.90",
+      description: "Parts suitable for use solely with the apparatus of heading 85.35–85.37",
+      destination: "Singapore",
       dutyRatePct: 0,
-      notes: "Preferential rate applies with a certificate of origin.",
+      gstRatePct: 9,
+      preferentialScheme: "ASEAN–China FTA",
+      requiredDocs: ["Form E certificate of origin", "commercial invoice", "packing list"],
+      notes:
+        "Singapore levies no import duty on this heading; 9% GST applies on CIF value and is " +
+        "recoverable for a GST-registered importer. Form E must be issued at origin.",
     }),
   },
 ];
