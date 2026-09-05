@@ -18,6 +18,10 @@ import { getClient, createEscrow, finishEscrow, cancelEscrow, generateEscrowCond
 import { getOrCreateBuyerWallet, getOrCreateVerifierWallet } from "./walletManager";
 import { createDeal, DealRecord, getDeal, getDealByToken, listDeals, toPublicDeal, updateDeal } from "./store";
 import { reviewEvidence } from "./evidenceReviewer";
+import { SERVICES } from "../x402/services";
+import { requirePayment, getMerchantAddress } from "../x402/middleware";
+import { TradeOrchestrator } from "../agents/orchestrator";
+import { AgentLogEvent, BuyerIntent } from "../shared/types";
 import { Client, Wallet, isValidAddress } from "xrpl";
 
 const PORT = Number(process.env.PORT || 3001);
@@ -38,6 +42,104 @@ function usdToDemoDrops(amountUsd: number): string {
   const xrp = Math.max(1, amountUsd * DEMO_USD_TO_XRP_RATE);
   return String(Math.round(xrp * 1_000_000));
 }
+
+// ---------------- x402: services the buyer agent pays for, per call ----------------
+//
+// Each of these answers HTTP 402 with payment terms until it sees proof of an
+// XRPL payment. The buyer agent settles them from its own funded account with
+// no human in the loop — this is the machine-to-machine half of the product.
+
+for (const service of SERVICES) {
+  app.get(service.path, requirePayment(service), (req, res) => {
+    res.json(service.handler(req));
+  });
+}
+
+app.get("/api/paid/catalog", async (_req, res) => {
+  res.json({
+    payTo: await getMerchantAddress(),
+    services: SERVICES.map((s) => ({
+      id: s.id,
+      priceXrp: s.priceXrp,
+      description: s.description,
+      path: s.path,
+    })),
+  });
+});
+
+// ---------------- Buyer: agent-sourced deals ----------------
+//
+// The agent does the sourcing, pays to verify candidates, negotiates, and
+// stops at a recommendation. Approval stays with the buyer.
+
+interface AgentRun {
+  id: string;
+  status: "running" | "awaiting_approval" | "done" | "failed";
+  events: AgentLogEvent[];
+  recommendation?: {
+    supplierId: string;
+    supplierName: string;
+    unitPriceUSD: number;
+    quantity: number;
+    totalUSD: number;
+    spendXrp: number;
+    receipts: unknown[];
+  };
+  error?: string;
+}
+
+const agentRuns = new Map<string, AgentRun>();
+
+app.post("/api/agent/source", (req, res) => {
+  const { productName, quantity, maxBudgetUSD, autoApproveLimitUSD, deadlineDays } = req.body ?? {};
+  if (!productName) return res.status(400).json({ error: "productName is required" });
+
+  const qty = Number(quantity) || 100;
+  const intent: BuyerIntent = {
+    productName,
+    quantity: qty,
+    maxBudgetUSD: Number(maxBudgetUSD) || 4000,
+    maxTargetUnitCostUSD: (Number(maxBudgetUSD) || 4000) / qty,
+    deadlineDays: Number(deadlineDays) || 14,
+    autoApproveLimitUSD: Number(autoApproveLimitUSD) || 500,
+  };
+
+  const run: AgentRun = { id: `RUN-${Date.now()}`, status: "running", events: [] };
+  agentRuns.set(run.id, run);
+
+  new TradeOrchestrator()
+    .recommendDeal(intent, (e) => run.events.push(e))
+    .then((result) => {
+      if (!result) {
+        run.status = "failed";
+        run.error = "no supplier qualified";
+        return;
+      }
+      run.status = "awaiting_approval";
+      run.recommendation = {
+        supplierId: result.supplier.supplierId,
+        supplierName: result.supplier.supplierName,
+        unitPriceUSD: result.agreedUnitPriceUSD,
+        quantity: intent.quantity,
+        totalUSD: result.totalUSD,
+        spendXrp: result.spendXrp,
+        receipts: result.receipts,
+      };
+    })
+    .catch((err) => {
+      run.status = "failed";
+      run.error = err.message;
+      console.error("[agent]", err);
+    });
+
+  res.json({ runId: run.id });
+});
+
+app.get("/api/agent/runs/:id", (req, res) => {
+  const run = agentRuns.get(req.params.id);
+  if (!run) return res.status(404).json({ error: "not found" });
+  res.json(run);
+});
 
 // ---------------- Buyer: create + list deals ----------------
 

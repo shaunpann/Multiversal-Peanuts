@@ -62,8 +62,8 @@ export interface DealRecord {
 }
 
 export interface WalletRecord {
-  role: "buyer" | "verifier";
-  ownerId: string; // buyerContact for role=buyer; "shared" for the single verifier wallet
+  role: "buyer" | "verifier" | "agent" | "merchant";
+  ownerId: string; // buyerContact for role=buyer; "shared" for the single verifier/agent/merchant wallets
   address: string;
   seed: string;
 }
